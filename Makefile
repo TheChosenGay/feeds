@@ -1,12 +1,15 @@
 MODULES := ./pkg/... ./services/gateway/... ./services/post/... ./services/feed/... ./services/user/...
 
-.PHONY: build tidy test
+.PHONY: build tidy test compose-up
 
 build:
-	go build $(MODULES)
+	@go build $(MODULES)
 
 test:
-	go test $(MODULES)
+	@go test $(MODULES)
+
+compose-up:
+	@docker compose up -d
 
 tidy:
 	@for dir in pkg services/gateway services/post services/feed services/user; do \

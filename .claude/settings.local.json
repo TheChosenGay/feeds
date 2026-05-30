@@ -10,7 +10,19 @@
       "Bash(gh repo *)",
       "Bash(echo \"exit: $?\")",
       "Bash(git add *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git tag *)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && cat {}')",
+      "Bash(grep -E \"\\\\.\\(toml|yaml|json|yml\\)$\")",
+      "Bash(grep -v \".go$\\\\|go.mod$\\\\|go.sum$\")",
+      "Bash(nvim --version)",
+      "Bash(/opt/homebrew/bin/nvim --version)",
+      "Bash(python3 -m json.tool)",
+      "Bash(docker run *)",
+      "Bash(curl *)",
+      "Bash(docker exec feeds-gateway *)"
     ]
   }
 }

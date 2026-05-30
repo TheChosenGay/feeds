@@ -1,102 +1,49 @@
 syntax = "proto3";
 
+option go_package = "github.com/TheChosenGay/feeds/proto/gen/user";
+
 package feeds.user.v1;
 
-option go_package = "github.com/daishan/feeds/proto/gen/user/v1";
-
-service UserService {
-  rpc Register(RegisterRequest) returns (RegisterResponse);
-  rpc Login(LoginRequest) returns (LoginResponse);
-  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
-  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
-  rpc Follow(FollowRequest) returns (FollowResponse);
-  rpc Unfollow(UnfollowRequest) returns (UnfollowResponse);
-  rpc GetFollowers(GetFollowersRequest) returns (GetFollowersResponse);
-  rpc GetFollowing(GetFollowingRequest) returns (GetFollowingResponse);
+message RegisterReq {
+    string username = 1;
+    string password = 2;
 }
 
-message RegisterRequest {
-  string username = 1;
-  string password = 2;
-  string email = 3;
+message RegisterResp {
+    string id = 1;
 }
 
-message RegisterResponse {
-  string user_id = 1;
-  string token = 2;
+message UnregisterReq {
+    string id = 1;
 }
 
-message LoginRequest {
-  string username = 1;
-  string password = 2;
+message UnregisterResp {
+    bool success = 1;
 }
 
-message LoginResponse {
-  string user_id = 1;
-  string token = 2;
+message GetInfoReq {
+    string id = 1;
 }
 
-message GetProfileRequest {
-  string user_id = 1;
+message GetInfoResp {
+    string id = 1;
+    string username = 2;
+    string avatar_url = 3;
 }
 
-message GetProfileResponse {
-  User user = 1;
+message LoginReq {
+    string username = 1;
+    string password = 2;
 }
 
-message UpdateProfileRequest {
-  string user_id = 1;
-  string nickname = 2;
-  string avatar_url = 3;
-  string bio = 4;
+message LoginResp {
+    bool success = 1;
+    string token = 2;
 }
 
-message UpdateProfileResponse {
-  User user = 1;
-}
-
-message FollowRequest {
-  string user_id = 1;
-  string target_user_id = 2;
-}
-
-message FollowResponse {}
-
-message UnfollowRequest {
-  string user_id = 1;
-  string target_user_id = 2;
-}
-
-message UnfollowResponse {}
-
-message GetFollowersRequest {
-  string user_id = 1;
-  int32 page_size = 2;
-  string cursor = 3;
-}
-
-message GetFollowersResponse {
-  repeated User users = 1;
-  string next_cursor = 2;
-}
-
-message GetFollowingRequest {
-  string user_id = 1;
-  int32 page_size = 2;
-  string cursor = 3;
-}
-
-message GetFollowingResponse {
-  repeated User users = 1;
-  string next_cursor = 2;
-}
-
-message User {
-  string id = 1;
-  string username = 2;
-  string nickname = 3;
-  string avatar_url = 4;
-  string bio = 5;
-  int64 follower_count = 6;
-  int64 following_count = 7;
+service UserServicev {
+    rpc Register(RegisterReq) returns (RegisterResp);
+    rpc GetInfo(GetInfoReq) returns (GetInfoResp);
+    rpc Unregiser(UnregisterReq) returns(UnregisterResp);
+    rpc Login(LoginReq) returns (LoginResp);
 }

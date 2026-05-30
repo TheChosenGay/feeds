@@ -1,4 +1,46 @@
 services:
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    container_name: feeds-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_ADDR: redis
+      KAFKA_BROKERS: kafka
+      USER_SERVICE_ADDR: user-service:9003
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 8080"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile
+    container_name: feeds-user
+    ports:
+      - "9003:9003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_ADDR: redis
+      KAFKA_BROKERS: kafka
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 9003"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:16-alpine
     container_name: feeds-postgres

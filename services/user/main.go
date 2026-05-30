@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/TheChosenGay/feeds/proto/gen/user"
 	"google.golang.org/grpc"
 )
 
@@ -14,9 +15,9 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	// TODO: register UserService
 
-	log.Printf("user service listening on :9003")
+	user.RegisterUserServicevServer(s, NewUserService())
+
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
