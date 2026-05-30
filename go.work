@@ -1,0 +1,9 @@
+go 1.22.0
+
+use (
+	./pkg
+	./services/gateway
+	./services/post
+	./services/feed
+	./services/user
+)
