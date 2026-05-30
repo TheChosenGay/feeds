@@ -3,6 +3,11 @@
 *.dll
 *.so
 *.dylib
+/gateway
+/services/*/main
+/services/post/post
+/services/feed/feed
+/services/user/user
 
 # Go
 /vendor/

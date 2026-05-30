@@ -1,3 +1,3 @@
-module github.com/daishan/feeds/pkg
+module github.com/TheChosenGay/feeds/pkg
 
 go 1.25.3

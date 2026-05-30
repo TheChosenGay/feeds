@@ -1,3 +1,7 @@
-module github.com/daishan/feeds/services/gateway
+module github.com/TheChosenGay/feeds/services/gateway
 
 go 1.25.3
+
+require github.com/TheChosenGay/feeds/pkg v0.0.0
+
+replace github.com/TheChosenGay/feeds/pkg => ../../pkg

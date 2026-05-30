@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/daishan/feeds/pkg/config"
+	"github.com/TheChosenGay/feeds/pkg/config"
 )
 
 func main() {

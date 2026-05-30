@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(go mod *)"
+      "Bash(go mod *)",
+      "Bash(go build *)",
+      "Bash(GOFLAGS=-mod=mod go build *)",
+      "Bash(go work *)",
+      "Bash(GOPRIVATE='github.com/daishan/*' go build *)",
+      "Bash(GOWORK=off go build *)",
+      "Bash(gh repo *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git add *)",
+      "Bash(git rm *)"
     ]
   }
 }
