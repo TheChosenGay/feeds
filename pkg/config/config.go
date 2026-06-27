@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 )
@@ -10,6 +12,7 @@ type Config struct {
 	MySQL    MySQLConfig
 	Redis    RedisConfig
 	Kafka    KafkaConfig
+	COS      COSConfig
 }
 
 type PostgresConfig struct {
@@ -27,6 +30,20 @@ func (c PostgresConfig) DSN() string {
 		" password=" + c.Password +
 		" dbname=" + c.DBName +
 		" sslmode=disable"
+}
+
+// MigrateURL returns a postgres:// URL for golang-migrate.
+func (c PostgresConfig) MigrateURL() string {
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(c.User, c.Password),
+		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+		Path:   "/" + c.DBName,
+	}
+	q := u.Query()
+	q.Set("sslmode", "disable")
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 type MySQLConfig struct {
@@ -53,6 +70,12 @@ type KafkaConfig struct {
 	Brokers []string
 }
 
+type COSConfig struct {
+	BucketURL string
+	SecretID  string
+	SecretKey string
+}
+
 func Load() *Config {
 	return &Config{
 		Postgres: PostgresConfig{
@@ -76,6 +99,11 @@ func Load() *Config {
 		},
 		Kafka: KafkaConfig{
 			Brokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
+		},
+		COS: COSConfig{
+			BucketURL: getEnv("COS_BUCKET_URL", ""),
+			SecretID:  getEnv("COS_SECRET_ID", ""),
+			SecretKey: getEnv("COS_SECRET_KEY", ""),
 		},
 	}
 }

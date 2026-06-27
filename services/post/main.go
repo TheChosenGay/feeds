@@ -24,12 +24,12 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := storage.RunMigrationsFS(cfg.Postgres.DSN(), migrationsFS); err != nil {
+	if err := storage.RunMigrationsFS(cfg.Postgres.MigrateURL(), migrationsFS, "migrations"); err != nil {
 		log.Fatalf("migrations: %v", err)
 	}
 
-	repo := NewPostRepository(db)
-	svc := NewPostService(repo)
+	repo := NewFeedRepository(db)
+	svc := NewFeedService(repo)
 
 	lis, err := net.Listen("tcp", ":9001")
 	if err != nil {
@@ -39,7 +39,7 @@ func main() {
 	s := grpc.NewServer()
 	pb.RegisterPostServiceServer(s, svc)
 
-	log.Printf("post service listening on :9001")
+	log.Printf("feed service listening on :9001")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("serve: %v", err)
 	}

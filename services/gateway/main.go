@@ -14,6 +14,9 @@ func main() {
 	_ = cfg
 
 	mux := http.NewServeMux()
+	upload := srv.NewUploadHandler(cfg.COS)
+	upload.RegisterMux(context.Background(), mux)
+
 	svc_manager := NewServiceManager()
 	svc_manager.RegisterService(srv.NewUserService())
 	mux = svc_manager.HandleMux(mux)

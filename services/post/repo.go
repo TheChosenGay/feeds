@@ -4,100 +4,94 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
-	"github.com/lib/pq"
 )
 
-// PostRepository handles all post database operations.
-type PostRepository struct {
+// FeedRepository handles all feed database operations.
+type FeedRepository struct {
 	db *sql.DB
 }
 
-func NewPostRepository(db *sql.DB) *PostRepository {
-	return &PostRepository{db: db}
+func NewFeedRepository(db *sql.DB) *FeedRepository {
+	return &FeedRepository{db: db}
 }
 
 const (
-	createPostSQL = `
-		INSERT INTO posts (author_id, content, post_type, media_urls)
-		VALUES ($1, $2, $3, $4)
+	createFeedSQL = `
+		INSERT INTO posts (author_id, blocks)
+		VALUES ($1, $2)
 		RETURNING id, created_at, updated_at`
 
-	getPostByIDSQL = `
-		SELECT id, author_id, content, post_type, media_urls, created_at, updated_at
+	getFeedByIDSQL = `
+		SELECT id, author_id, blocks, created_at, updated_at
 		FROM posts WHERE id = $1`
 
-	listPostsSQL = `
-		SELECT id, author_id, content, post_type, media_urls, created_at, updated_at
+	listFeedsSQL = `
+		SELECT id, author_id, blocks, created_at, updated_at
 		FROM posts
 		WHERE ($1 = '' OR author_id = $1)
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3`
 
-	countPostsSQL = `
+	countFeedsSQL = `
 		SELECT COUNT(*) FROM posts
 		WHERE ($1 = '' OR author_id = $1)`
 
-	deletePostSQL = `
+	deleteFeedSQL = `
 		DELETE FROM posts WHERE id = $1 AND author_id = $2`
 )
 
-func (r *PostRepository) Create(ctx context.Context, authorID, content, postType string, mediaURLs []string) (*Post, error) {
-	p := &Post{AuthorID: authorID, Content: content, PostType: postType, MediaURLs: mediaURLs}
-	err := r.db.QueryRowContext(ctx, createPostSQL, authorID, content, postType, pq.Array(mediaURLs)).
-		Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+func (r *FeedRepository) Create(ctx context.Context, authorID string, blocks Blocks) (*Feed, error) {
+	f := &Feed{AuthorID: authorID, Blocks: blocks}
+	err := r.db.QueryRowContext(ctx, createFeedSQL, authorID, blocks).
+		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("create post: %w", err)
+		return nil, fmt.Errorf("create feed: %w", err)
 	}
-	return p, nil
+	return f, nil
 }
 
-func (r *PostRepository) FindByID(ctx context.Context, id string) (*Post, error) {
-	p := &Post{}
-	urls := pq.StringArray{}
-	err := r.db.QueryRowContext(ctx, getPostByIDSQL, id).
-		Scan(&p.ID, &p.AuthorID, &p.Content, &p.PostType, &urls, &p.CreatedAt, &p.UpdatedAt)
+func (r *FeedRepository) FindByID(ctx context.Context, id string) (*Feed, error) {
+	f := &Feed{}
+	err := r.db.QueryRowContext(ctx, getFeedByIDSQL, id).
+		Scan(&f.ID, &f.AuthorID, &f.Blocks, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("find post: %w", err)
+		return nil, fmt.Errorf("find feed: %w", err)
 	}
-	p.MediaURLs = []string(urls)
-	return p, nil
+	return f, nil
 }
 
-func (r *PostRepository) List(ctx context.Context, authorID string, page, pageSize int) ([]*Post, int, error) {
+func (r *FeedRepository) List(ctx context.Context, authorID string, page, pageSize int) ([]*Feed, int, error) {
 	var total int
-	if err := r.db.QueryRowContext(ctx, countPostsSQL, authorID).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count posts: %w", err)
+	if err := r.db.QueryRowContext(ctx, countFeedsSQL, authorID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count feeds: %w", err)
 	}
 
 	offset := (page - 1) * pageSize
-	rows, err := r.db.QueryContext(ctx, listPostsSQL, authorID, pageSize, offset)
+	rows, err := r.db.QueryContext(ctx, listFeedsSQL, authorID, pageSize, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("list posts: %w", err)
+		return nil, 0, fmt.Errorf("list feeds: %w", err)
 	}
 	defer rows.Close()
 
-	posts := make([]*Post, 0)
+	feeds := make([]*Feed, 0)
 	for rows.Next() {
-		p := &Post{}
-		urls := pq.StringArray{}
-		if err := rows.Scan(&p.ID, &p.AuthorID, &p.Content, &p.PostType, &urls, &p.CreatedAt, &p.UpdatedAt); err != nil {
-			return nil, 0, fmt.Errorf("scan post: %w", err)
+		f := &Feed{}
+		if err := rows.Scan(&f.ID, &f.AuthorID, &f.Blocks, &f.CreatedAt, &f.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan feed: %w", err)
 		}
-		p.MediaURLs = []string(urls)
-		posts = append(posts, p)
+		feeds = append(feeds, f)
 	}
-	return posts, total, rows.Err()
+	return feeds, total, rows.Err()
 }
 
-func (r *PostRepository) Delete(ctx context.Context, id, authorID string) error {
-	result, err := r.db.ExecContext(ctx, deletePostSQL, id, authorID)
+func (r *FeedRepository) Delete(ctx context.Context, id, authorID string) error {
+	result, err := r.db.ExecContext(ctx, deleteFeedSQL, id, authorID)
 	if err != nil {
-		return fmt.Errorf("delete post: %w", err)
+		return fmt.Errorf("delete feed: %w", err)
 	}
 	n, _ := result.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("delete post: not found or not authorized")
+		return fmt.Errorf("delete feed: not found or not authorized")
 	}
 	return nil
 }

@@ -6,45 +6,39 @@ import (
 	pb "github.com/TheChosenGay/feeds/proto/gen/post"
 )
 
-type PostService struct {
+type FeedService struct {
 	pb.UnimplementedPostServiceServer
-	repo *PostRepository
+	repo *FeedRepository
 }
 
-func NewPostService(repo *PostRepository) *PostService {
-	return &PostService{repo: repo}
+func NewFeedService(repo *FeedRepository) *FeedService {
+	return &FeedService{repo: repo}
 }
 
-func (s *PostService) CreatePost(ctx context.Context, req *pb.CreatePostReq) (*pb.CreatePostResp, error) {
-	postType := req.PostType
-	if postType == "" {
-		postType = "text"
-	}
-	p, err := s.repo.Create(ctx, req.AuthorId, req.Content, postType, req.MediaUrls)
+func (s *FeedService) PostFeed(ctx context.Context, req *pb.PostFeedReq) (*pb.PostFeedResp, error) {
+	blocks := blocksFromProto(req.Blocks)
+	f, err := s.repo.Create(ctx, req.AuthorId, blocks)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: emit Kafka "post.created" event
-	return &pb.CreatePostResp{Id: p.ID}, nil
+	return &pb.PostFeedResp{Id: f.ID}, nil
 }
 
-func (s *PostService) GetPost(ctx context.Context, req *pb.GetPostReq) (*pb.GetPostResp, error) {
-	p, err := s.repo.FindByID(ctx, req.Id)
+func (s *FeedService) GetFeed(ctx context.Context, req *pb.GetFeedReq) (*pb.GetFeedResp, error) {
+	f, err := s.repo.FindByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetPostResp{
-		Id:        p.ID,
-		AuthorId:  p.AuthorID,
-		Content:   p.Content,
-		PostType:  p.PostType,
-		MediaUrls: p.MediaURLs,
-		CreatedAt: p.CreatedAt.Unix(),
-		UpdatedAt: p.UpdatedAt.Unix(),
+	return &pb.GetFeedResp{
+		Id:        f.ID,
+		AuthorId:  f.AuthorID,
+		Blocks:    blocksToProto(f.Blocks),
+		CreatedAt: f.CreatedAt.Unix(),
+		UpdatedAt: f.UpdatedAt.Unix(),
 	}, nil
 }
 
-func (s *PostService) ListPosts(ctx context.Context, req *pb.ListPostsReq) (*pb.ListPostsResp, error) {
+func (s *FeedService) ListFeeds(ctx context.Context, req *pb.ListFeedsReq) (*pb.ListFeedsResp, error) {
 	page, pageSize := int(req.Page), int(req.PageSize)
 	if page <= 0 {
 		page = 1
@@ -53,29 +47,61 @@ func (s *PostService) ListPosts(ctx context.Context, req *pb.ListPostsReq) (*pb.
 		pageSize = 20
 	}
 
-	posts, total, err := s.repo.List(ctx, req.AuthorId, page, pageSize)
+	feeds, total, err := s.repo.List(ctx, req.AuthorId, page, pageSize)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.ListPostsResp{Total: int32(total)}
-	for _, p := range posts {
-		resp.Posts = append(resp.Posts, &pb.GetPostResp{
-			Id:        p.ID,
-			AuthorId:  p.AuthorID,
-			Content:   p.Content,
-			PostType:  p.PostType,
-			MediaUrls: p.MediaURLs,
-			CreatedAt: p.CreatedAt.Unix(),
-			UpdatedAt: p.UpdatedAt.Unix(),
+	resp := &pb.ListFeedsResp{Total: int32(total)}
+	for _, f := range feeds {
+		resp.Feeds = append(resp.Feeds, &pb.GetFeedResp{
+			Id:        f.ID,
+			AuthorId:  f.AuthorID,
+			Blocks:    blocksToProto(f.Blocks),
+			CreatedAt: f.CreatedAt.Unix(),
+			UpdatedAt: f.UpdatedAt.Unix(),
 		})
 	}
 	return resp, nil
 }
 
-func (s *PostService) DeletePost(ctx context.Context, req *pb.DeletePostReq) (*pb.DeletePostResp, error) {
+func (s *FeedService) DeleteFeed(ctx context.Context, req *pb.DeleteFeedReq) (*pb.DeleteFeedResp, error) {
 	if err := s.repo.Delete(ctx, req.Id, req.AuthorId); err != nil {
-		return &pb.DeletePostResp{Success: false}, err
+		return &pb.DeleteFeedResp{Success: false}, err
 	}
-	return &pb.DeletePostResp{Success: true}, nil
+	return &pb.DeleteFeedResp{Success: true}, nil
+}
+
+func blocksFromProto(pbs []*pb.Block) Blocks {
+	blocks := make(Blocks, len(pbs))
+	for i, b := range pbs {
+		blocks[i] = Block{
+			Type:     b.Type,
+			Content:  b.Content,
+			URL:      b.Url,
+			CoverURL: b.CoverUrl,
+			Width:    b.Width,
+			Height:   b.Height,
+			Duration: b.Duration,
+			Size:     b.Size,
+		}
+	}
+	return blocks
+}
+
+func blocksToProto(blocks Blocks) []*pb.Block {
+	pbs := make([]*pb.Block, len(blocks))
+	for i, b := range blocks {
+		pbs[i] = &pb.Block{
+			Type:     b.Type,
+			Content:  b.Content,
+			Url:      b.URL,
+			CoverUrl: b.CoverURL,
+			Width:    b.Width,
+			Height:   b.Height,
+			Duration: b.Duration,
+			Size:     b.Size,
+		}
+	}
+	return pbs
 }

@@ -29,9 +29,9 @@ func RunMigrations(dsn, dir string) error {
 }
 
 // RunMigrationsFS applies up migrations from an embedded filesystem (go:embed).
-// fsys is the embedded FS; sub is the subdirectory within it (use "." for root).
-func RunMigrationsFS(dsn string, fsys fs.FS) error {
-	src, err := iofs.New(fsys, ".")
+// dir is the subdirectory within fsys that contains *.up.sql files (e.g. "migrations").
+func RunMigrationsFS(dsn string, fsys fs.FS, dir string) error {
+	src, err := iofs.New(fsys, dir)
 	if err != nil {
 		return fmt.Errorf("storage: init iofs: %w", err)
 	}

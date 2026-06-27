@@ -3,6 +3,8 @@ module github.com/TheChosenGay/feeds/services/user
 go 1.25.3
 
 require (
+	github.com/TheChosenGay/feeds/pkg v0.0.1
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	golang.org/x/crypto v0.48.0
 	google.golang.org/grpc v1.81.1
 )

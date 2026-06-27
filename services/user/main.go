@@ -24,7 +24,7 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := storage.RunMigrationsFS(cfg.Postgres.DSN(), migrationsFS); err != nil {
+	if err := storage.RunMigrationsFS(cfg.Postgres.MigrateURL(), migrationsFS, "migrations"); err != nil {
 		log.Fatalf("migrations: %v", err)
 	}
 

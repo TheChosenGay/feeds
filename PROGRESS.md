@@ -108,23 +108,45 @@ Gateway（持有 JWT，验证身份）
 - 外键用 `ON DELETE CASCADE`：用户/帖子被删，互动自动清理
 - Kafka 事件携带足够的冗余数据，消费者不需要回查源服务
 
-### 7. 内容类型 & 多级加速
+### 9. 媒体上传 & COS 分发
 
-| 内容类型 | 存储 | 处理 |
+上传独立于帖子，Gateway 提供通用上传入口：
+
+```
+发帖流程（一次请求）：
+                              ③ 直传 COS（秒传，CDN 就近）
+客户端 ──────────────────────────────────────→ COS/S3
+  │                                                │
+  │ ① 选图，本地取得 width/height/size/duration       │
+  │ ② GET /upload/token → 后端返回预签名 URL         │
+  │                                                │
+  │ ④ 组装 blocks（带元数据）：                       │
+  │   [{"type":"image","url":"cos://...",            │
+  │     "width":1920,"height":1080}]                │
+  │                                                │
+  └──────────────────────────→ POST /posts ──→ Post Service
+                               （只传 1-2 KB JSON）
+```
+
+加载流程（一次 API 请求，图片走 CDN）：
+```
+Feed 列表 → 返回帖子 JSON（含 width/height/duration）→ 客户端占位
+           → <img src="cos://..."> 浏览器/App 从 CDN 加载（不经过后台）
+```
+
+COS 优势：
+- CDN 就近分发，不占用服务器带宽
+- 图片处理 URL 参数：`?imageMogr2/thumbnail/200x` 前端按需变尺寸
+- 视频首帧：`?ci-process=snapshot&time=1`
+- 通用的上传 Token 接口，头像/帖子/评论都能复用
+
+Block 元数据（客户端上传前获取）：
+| 字段 | 来源 | 作用 |
 |---|---|---|
-| 文字 | PG TEXT | 敏感词过滤 |
-| 图片 | OSS/S3 | 缩略图 + 压缩 |
-| 视频 | OSS/S3 | 转码 + 首帧封面 |
-| 链接 | PG TEXT | OpenGraph 抓取 |
-
-访问加速链：**CDN → Redis → PostgreSQL**
-
-| 数据类型 | 缓存策略 |
-|---|---|
-| 帖子详情 | Redis TTL 5min，miss 查 PG |
-| 点赞/评论计数 | Redis INCR，定时从 PG 校准 |
-| Feed 流 (inbox/outbox) | 本身就是 Redis ZSET，无需额外缓存 |
-| 静态资源 (图片/视频) | CDN |
+| `width / height` | 客户端选图时取得 | 页面占位，防止加载抖动 |
+| `duration` | 客户端选视频时取得 | 显示时长 |
+| `size` | 客户端选文件时取得 | 体积提示 |
+| `cover_url` | 客户端截图或 COS 自动生成 | 视频封面 |
 
 ### 8. 推荐系统 — 分层 Worker
 
@@ -221,13 +243,14 @@ feeds/
 - [ ] 关注/取关
 - [ ] proto 代码生成 (待 buf 安装)
 
-### Phase 3: 发帖服务
-- [ ] proto: post.proto + interaction.proto
-- [ ] 数据模型 (posts / comments / likes 表)
-- [ ] 发帖 (文字/图片/视频/链接)
-- [ ] 评论
-- [ ] 点赞/收藏
-- [ ] Kafka 事件发布
+### Phase 3: 发帖服务 & 互动服务
+- [x] proto: post.proto（Block 模型：图文视频混排 + 元数据）
+- [x] 数据模型：posts 表（JSONB blocks），PostRepository CRUD + 分页
+- [x] 媒体上传：Gateway 内置 `GET /upload/token`（COS 预签名 URL）
+- [ ] proto: interaction.proto
+- [ ] Interaction 服务（点赞/评论/收藏）
+- [ ] Gateway 对 Post 的 HTTP 路由（POST /posts 等）
+- [ ] Kafka 事件发布（post.created）
 
 ### Phase 4: Feed 流服务
 - [ ] 混合 Feed 模型实现

@@ -18,6 +18,7 @@ RUN go build -o /app/user-service ./services/user
 
 # 运行阶段
 FROM alpine:latest
+RUN apk add --no-cache netcat-openbsd
 COPY --from=builder /app/user-service /usr/local/bin/user-service
 EXPOSE 9003
 CMD ["user-service"]

@@ -18,6 +18,7 @@ RUN go build -o /app/gateway ./services/gateway
 
 # 运行阶段
 FROM alpine:latest
+RUN apk add --no-cache netcat-openbsd
 COPY --from=builder /app/gateway /usr/local/bin/gateway
 EXPOSE 8080
 CMD ["gateway"]
