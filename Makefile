@@ -1,6 +1,7 @@
-MODULES := ./pkg/... ./services/gateway/... ./services/post/... ./services/feed/... ./services/user/...
+MODULES := ./pkg/... ./services/gateway/... ./services/feed/... ./services/user/...
+GO_VERSION := 1.25.3
 
-.PHONY: build tidy test compose-up proto
+.PHONY: build tidy test compose-up proto bootstrap pin-proto-go
 
 build:
 	@go build $(MODULES)
@@ -19,8 +20,15 @@ tidy:
 		(cd $$dir && go mod tidy); \
 	done
 
+# buf generate writes go.mod with the local Go version; pin to GO_VERSION afterward.
+pin-proto-go:
+	@for f in proto/gen/*/go.mod; do \
+		sed -i '' 's/^go .*/go $(GO_VERSION)/' "$$f"; \
+	done
+
 proto:
 	@buf generate
+	@$(MAKE) pin-proto-go
 
 # first-time setup: generate proto + init go.mod for generated code
 bootstrap: proto
@@ -31,4 +39,5 @@ bootstrap: proto
 			(cd $$dir && go mod init $$mod && go mod tidy); \
 		fi; \
 	done
+	@$(MAKE) pin-proto-go
 	@$(MAKE) tidy

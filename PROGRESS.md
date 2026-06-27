@@ -214,8 +214,7 @@ feeds/
 ├── services/
 │   ├── gateway/              # API Gateway (REST → gRPC)
 │   ├── user/                 # 用户/关注 (gRPC)
-│   ├── post/                 # 帖子 CRUD (gRPC)
-│   ├── feed/                 # Feed 流组装 (gRPC)
+│   ├── feed/                 # 帖子 CRUD + Feed 流组装 (gRPC)
 │   └── interaction/          # 点赞/评论/收藏 (gRPC, 待建)
 ├── workers/                  # Python 异步 Workers
 │   ├── fanout/               # 写扩散

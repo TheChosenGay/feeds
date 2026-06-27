@@ -21,6 +21,7 @@ type PostgresConfig struct {
 	User     string
 	Password string
 	DBName   string
+	Schema   string
 }
 
 func (c PostgresConfig) DSN() string {
@@ -29,7 +30,8 @@ func (c PostgresConfig) DSN() string {
 		" user=" + c.User +
 		" password=" + c.Password +
 		" dbname=" + c.DBName +
-		" sslmode=disable"
+		" sslmode=disable" +
+		" search_path=" + c.Schema
 }
 
 // MigrateURL returns a postgres:// URL for golang-migrate.
@@ -76,7 +78,13 @@ type COSConfig struct {
 	SecretKey string
 }
 
-func Load() *Config {
+// Load reads config from environment variables. If service is non-empty, it is used
+// as the PostgreSQL search_path schema (overriding POSTGRES_SCHEMA env).
+func Load(service string) *Config {
+	schema := service
+	if schema == "" {
+		schema = getEnv("POSTGRES_SCHEMA", "public")
+	}
 	return &Config{
 		Postgres: PostgresConfig{
 			Host:     getEnv("POSTGRES_HOST", "localhost"),
@@ -84,6 +92,7 @@ func Load() *Config {
 			User:     getEnv("POSTGRES_USER", "feeds"),
 			Password: getEnv("POSTGRES_PASSWORD", "feeds_dev"),
 			DBName:   getEnv("POSTGRES_DB", "feeds"),
+			Schema:   schema,
 		},
 		MySQL: MySQLConfig{
 			Host:     getEnv("MYSQL_HOST", "localhost"),

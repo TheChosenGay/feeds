@@ -11,16 +11,37 @@ services:
         condition: service_healthy
       user-service:
         condition: service_healthy
+      feed-service:
+        condition: service_healthy
     environment:
       POSTGRES_HOST: postgres
       REDIS_ADDR: redis
       KAFKA_BROKERS: kafka
       USER_SERVICE_ADDR: user-service:9003
+      FEED_SERVICE_ADDR: feed-service:9001
     healthcheck:
       test: ["CMD", "sh", "-c", "nc -z localhost 8080"]
       interval: 5s
       timeout: 5s
       retries: 5
+  feed-service:
+    build:
+      context: .
+      dockerfile: services/feed/Dockerfile
+    container_name: feeds-feed
+    ports:
+      - "9001:9001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 9001"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   user-service:
     build:
       context: .

@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
+	cfg := config.Load("")
 	_ = cfg
 
 	mux := http.NewServeMux()
@@ -19,6 +19,7 @@ func main() {
 
 	svc_manager := NewServiceManager()
 	svc_manager.RegisterService(srv.NewUserService())
+	svc_manager.RegisterService(srv.NewFeedService())
 	mux = svc_manager.HandleMux(mux)
 
 	addr := ":8080"

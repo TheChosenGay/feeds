@@ -2,9 +2,9 @@ go 1.25.3
 
 use (
 	./pkg
+	./proto/gen/feed
 	./proto/gen/user
 	./services/feed
 	./services/gateway
-	./services/post
 	./services/user
 )

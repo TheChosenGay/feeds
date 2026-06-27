@@ -16,7 +16,7 @@ import (
 var migrationsFS embed.FS
 
 func main() {
-	cfg := config.Load()
+	cfg := config.Load("user")
 
 	db, err := storage.NewPostgresPool(context.Background(), cfg.Postgres.DSN(), 20)
 	if err != nil {
