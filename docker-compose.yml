@@ -155,8 +155,8 @@ services:
     container_name: feeds-grafana
     volumes:
       - ./configs/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - ./configs/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./configs/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./configs/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/default.yml:ro
+      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3000:3000"
     depends_on:
