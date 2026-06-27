@@ -1,41 +1,52 @@
 package storage
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
+	"io/fs"
 	"log"
-	"os"
-	"path/filepath"
-	"sort"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-// RunMigrations reads *.sql files from dir (sorted by name) and executes them in order.
-// Files should be idempotent — use IF NOT EXISTS etc.
-func RunMigrations(db *sql.DB, dir string) error {
-	entries, err := os.ReadDir(dir)
+// RunMigrations applies up migrations from a directory on disk.
+func RunMigrations(dsn, dir string) error {
+	m, err := migrate.New("file://"+dir, dsn)
 	if err != nil {
-		return fmt.Errorf("storage: read migrations dir %s: %w", dir, err)
+		return fmt.Errorf("storage: init migrate: %w", err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("storage: run migrations: %w", err)
 	}
 
-	files := make([]string, 0)
-	for _, e := range entries {
-		if !e.IsDir() && filepath.Ext(e.Name()) == ".sql" {
-			files = append(files, e.Name())
-		}
-	}
-	sort.Strings(files)
+	version, dirty, _ := m.Version()
+	log.Printf("migrations up to date: version=%d dirty=%v", version, dirty)
+	return nil
+}
 
-	for _, f := range files {
-		path := filepath.Join(dir, f)
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("storage: read %s: %w", path, err)
-		}
-		if _, err := db.ExecContext(context.Background(), string(content)); err != nil {
-			return fmt.Errorf("storage: exec %s: %w", path, err)
-		}
-		log.Printf("migration applied: %s", f)
+// RunMigrationsFS applies up migrations from an embedded filesystem (go:embed).
+// fsys is the embedded FS; sub is the subdirectory within it (use "." for root).
+func RunMigrationsFS(dsn string, fsys fs.FS) error {
+	src, err := iofs.New(fsys, ".")
+	if err != nil {
+		return fmt.Errorf("storage: init iofs: %w", err)
 	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", src, dsn)
+	if err != nil {
+		return fmt.Errorf("storage: init migrate: %w", err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("storage: run migrations: %w", err)
+	}
+
+	version, dirty, _ := m.Version()
+	log.Printf("migrations up to date: version=%d dirty=%v", version, dirty)
 	return nil
 }

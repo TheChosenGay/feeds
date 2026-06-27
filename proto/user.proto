@@ -44,6 +44,6 @@ message LoginResp {
 service UserServicev {
     rpc Register(RegisterReq) returns (RegisterResp);
     rpc GetInfo(GetInfoReq) returns (GetInfoResp);
-    rpc Unregiser(UnregisterReq) returns(UnregisterResp);
+    rpc Unregister(UnregisterReq) returns (UnregisterResp);
     rpc Login(LoginReq) returns (LoginResp);
 }

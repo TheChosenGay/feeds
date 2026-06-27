@@ -51,7 +51,92 @@
 
 - **Kafka 解耦** — 业务服务只管发事件，不管谁消费
 - **Worker 消费** — fanout 写 inbox，notification 写通知表
-- **实时推送** — Gateway 维护 WebSocket；离线用户下次拉取
+- **WebSocket** — Gateway 维护长连接池，在线用户即时推送，离线用户下次拉取
+
+### 3. WebSocket 通知通道
+
+Gateway 是唯一和客户端直接通信的服务，WebSocket 放在此处：
+
+```
+notification worker
+    │
+    ├── 写 notifications 表（持久化，离线用户下次拉取）
+    ├── 查 Gateway：user 在线吗？
+    │       │
+    │       ├── 在线 → WebSocket 即时推送
+    │       └── 离线 → 跳过
+    │
+    ▼
+Gateway（WebSocket 连接池）
+    user_123 ←→ conn_a
+    user_456 ←→ conn_b
+```
+
+通知表：
+```sql
+CREATE TABLE notifications (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL,
+    type       VARCHAR(32) NOT NULL,  -- like / comment / follow
+    actor_id   UUID,
+    post_id    UUID,
+    message    TEXT,
+    read       BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### 6. 服务间依赖 — 零代码依赖，只信任数据
+
+Interaction Service 不需要 import User 或 Post 的 protobuf：
+
+```
+Gateway（持有 JWT，验证身份）
+    │
+    ├── gRPC → Post Service（验证帖子存在）
+    ├── gRPC → Interaction Service（写操作）
+    └── 结果返回客户端
+```
+
+| | User Service | Post Service | Interaction Service |
+|---|---|---|---|
+| **知道什么** | 用户名、密码、头像 | 帖子内容、媒体 | user_id + post_id + 动作 |
+| **依赖谁** | 无 | User（作者字段存在性） | **无** |
+| **被谁调用** | Gateway | Gateway | Gateway |
+
+- Interaction 只存 `user_id` / `post_id`，由 Gateway 先验证存在性
+- 外键用 `ON DELETE CASCADE`：用户/帖子被删，互动自动清理
+- Kafka 事件携带足够的冗余数据，消费者不需要回查源服务
+
+### 7. 内容类型 & 多级加速
+
+| 内容类型 | 存储 | 处理 |
+|---|---|---|
+| 文字 | PG TEXT | 敏感词过滤 |
+| 图片 | OSS/S3 | 缩略图 + 压缩 |
+| 视频 | OSS/S3 | 转码 + 首帧封面 |
+| 链接 | PG TEXT | OpenGraph 抓取 |
+
+访问加速链：**CDN → Redis → PostgreSQL**
+
+| 数据类型 | 缓存策略 |
+|---|---|
+| 帖子详情 | Redis TTL 5min，miss 查 PG |
+| 点赞/评论计数 | Redis INCR，定时从 PG 校准 |
+| Feed 流 (inbox/outbox) | 本身就是 Redis ZSET，无需额外缓存 |
+| 静态资源 (图片/视频) | CDN |
+
+### 8. 推荐系统 — 分层 Worker
+
+**ranking worker**：持续计算热度分
+```
+hot_score = (likes×3 + comments×5 + shares×10) / (hours_since_post + 2)^1.5
+```
+
+**recommend worker**：
+- 协同过滤 + 内容召回 + 冷启动曝光
+- 结果写入 `rec:{user_id}` ZSET
+- Feed 组装时混排：关注时间线 + 推荐候选 + 热门
 
 ### 3. 用户服务独立 + 跨服务处理
 
@@ -130,10 +215,11 @@ feeds/
 - [x] 共享库 (config)
 
 ### Phase 2: 用户服务
-- [ ] 数据模型 (users 表)
-- [ ] 注册/登录 (JWT)
-- [ ] 用户资料 CRUD
+- [x] 数据模型 + Repository 层
+- [x] 注册/登录 (bcrypt + JWT)
+- [x] 迁移管理 (golang-migrate + go:embed)
 - [ ] 关注/取关
+- [ ] proto 代码生成 (待 buf 安装)
 
 ### Phase 3: 发帖服务
 - [ ] proto: post.proto + interaction.proto
@@ -169,11 +255,13 @@ feeds/
 
 ## 当前进度
 
-**当前阶段**: Phase 2 - 用户服务
+**当前阶段**: Phase 3 - 发帖服务 & 互动服务
 
 ### 2026-06-27
-- 确定架构设计决策（服务拆分、消息推送、跨服务调用、性能监控方案）
-- 更新项目规划文档
+- 完成 pkg/storage（PG + MySQL + Redis 连接 + golang-migrate + embed）
+- 完成 Phase 2 用户服务：model / repo / bcrypt / JWT / 迁移
+- 确定：Interaction 服务零依赖、WebSocket 推送、多级缓存、推荐架构
+- 开始 Phase 3：Post + Interaction 服务开发
 
 ### 2026-05-30
 - 完成技术方案选型

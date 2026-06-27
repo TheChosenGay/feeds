@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+option go_package = "github.com/TheChosenGay/feeds/proto/gen/post";
+
+package feeds.post.v1;
+
+message CreatePostReq {
+    string author_id = 1;
+    string content = 2;
+    string post_type = 3;       // text / image / video / link
+    repeated string media_urls = 4;
+}
+
+message CreatePostResp {
+    string id = 1;
+}
+
+message GetPostReq {
+    string id = 1;
+}
+
+message GetPostResp {
+    string id = 1;
+    string author_id = 2;
+    string content = 3;
+    string post_type = 4;
+    repeated string media_urls = 5;
+    int64 created_at = 6;
+    int64 updated_at = 7;
+}
+
+message ListPostsReq {
+    string author_id = 1;    // optional: filter by author
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ListPostsResp {
+    repeated GetPostResp posts = 1;
+    int32 total = 2;
+}
+
+message DeletePostReq {
+    string id = 1;
+    string author_id = 2;    // 只有作者可以删
+}
+
+message DeletePostResp {
+    bool success = 1;
+}
+
+service PostService {
+    rpc CreatePost(CreatePostReq) returns (CreatePostResp);
+    rpc GetPost(GetPostReq) returns (GetPostResp);
+    rpc ListPosts(ListPostsReq) returns (ListPostsResp);
+    rpc DeletePost(DeletePostReq) returns (DeletePostResp);
+}

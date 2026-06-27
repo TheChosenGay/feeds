@@ -35,9 +35,27 @@ func NewUserService() *UserService {
 }
 
 func (s *UserService) RegisterMux(ctx context.Context, mx *http.ServeMux) {
-	mx.HandleFunc("GET /user/info/{id}", s.handleGetUserInfo)
+	mx.HandleFunc("POST /user/register", s.handleRegister)
 	mx.HandleFunc("POST /user/login", s.handleLogin)
+	mx.HandleFunc("GET /user/info/{id}", s.handleGetUserInfo)
+	mx.HandleFunc("DELETE /user/{id}", s.handleUnregister)
+}
 
+func (s *UserService) handleRegister(w http.ResponseWriter, r *http.Request) {
+	var req user.RegisterReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	resp, err := s.userSvc.Register(r.Context(), &req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id": resp.GetId(),
+	})
 }
 
 func (s *UserService) handleGetUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -74,4 +92,17 @@ func (s *UserService) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (s *UserService) handleUnregister(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	resp, err := s.userSvc.Unregister(r.Context(), &user.UnregisterReq{Id: id})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": resp.GetSuccess(),
+	})
 }

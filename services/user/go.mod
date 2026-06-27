@@ -2,7 +2,10 @@ module github.com/TheChosenGay/feeds/services/user
 
 go 1.25.3
 
-require google.golang.org/grpc v1.81.1
+require (
+	golang.org/x/crypto v0.48.0
+	google.golang.org/grpc v1.81.1
+)
 
 require (
 	golang.org/x/net v0.51.0 // indirect
