@@ -83,48 +83,48 @@ type COSConfig struct {
 func Load(service string) *Config {
 	schema := service
 	if schema == "" {
-		schema = getEnv("POSTGRES_SCHEMA", "public")
+		schema = GetEnv("POSTGRES_SCHEMA", "public")
 	}
 	return &Config{
 		Postgres: PostgresConfig{
-			Host:     getEnv("POSTGRES_HOST", "localhost"),
-			Port:     getEnvInt("POSTGRES_PORT", 5432),
-			User:     getEnv("POSTGRES_USER", "feeds"),
-			Password: getEnv("POSTGRES_PASSWORD", "feeds_dev"),
-			DBName:   getEnv("POSTGRES_DB", "feeds"),
+			Host:     GetEnv("POSTGRES_HOST", "localhost"),
+			Port:     GetEnvInt("POSTGRES_PORT", 5432),
+			User:     GetEnv("POSTGRES_USER", "feeds"),
+			Password: GetEnv("POSTGRES_PASSWORD", "feeds_dev"),
+			DBName:   GetEnv("POSTGRES_DB", "feeds"),
 			Schema:   schema,
 		},
 		MySQL: MySQLConfig{
-			Host:     getEnv("MYSQL_HOST", "localhost"),
-			Port:     getEnvInt("MYSQL_PORT", 3306),
-			User:     getEnv("MYSQL_USER", "feeds"),
-			Password: getEnv("MYSQL_PASSWORD", "feeds_dev"),
-			DBName:   getEnv("MYSQL_DB", "feeds"),
+			Host:     GetEnv("MYSQL_HOST", "localhost"),
+			Port:     GetEnvInt("MYSQL_PORT", 3306),
+			User:     GetEnv("MYSQL_USER", "feeds"),
+			Password: GetEnv("MYSQL_PASSWORD", "feeds_dev"),
+			DBName:   GetEnv("MYSQL_DB", "feeds"),
 		},
 		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvInt("REDIS_DB", 0),
+			Addr:     GetEnv("REDIS_ADDR", "localhost:6379"),
+			Password: GetEnv("REDIS_PASSWORD", ""),
+			DB:       GetEnvInt("REDIS_DB", 0),
 		},
 		Kafka: KafkaConfig{
-			Brokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
+			Brokers: []string{GetEnv("KAFKA_BROKERS", "localhost:9092")},
 		},
 		COS: COSConfig{
-			BucketURL: getEnv("COS_BUCKET_URL", ""),
-			SecretID:  getEnv("COS_SECRET_ID", ""),
-			SecretKey: getEnv("COS_SECRET_KEY", ""),
+			BucketURL: GetEnv("COS_BUCKET_URL", ""),
+			SecretID:  GetEnv("COS_SECRET_ID", ""),
+			SecretKey: GetEnv("COS_SECRET_KEY", ""),
 		},
 	}
 }
 
-func getEnv(key, fallback string) string {
+func GetEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return fallback
 }
 
-func getEnvInt(key string, fallback int) int {
+func GetEnvInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {
 			return i

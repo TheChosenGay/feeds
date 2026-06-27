@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	"github.com/TheChosenGay/feeds/proto/gen/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,7 +24,9 @@ func NewUserService() *UserService {
 	}
 	conn, err := grpc.NewClient(
 		userAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(telemetry.ClientStatsHandler()),
+	)
 	if err != nil {
 		log.Fatalf("failed to create grpc client: %v", err)
 	}

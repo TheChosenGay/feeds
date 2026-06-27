@@ -8,6 +8,7 @@ import (
 
 	"github.com/TheChosenGay/feeds/pkg/config"
 	"github.com/TheChosenGay/feeds/pkg/storage"
+	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	"github.com/TheChosenGay/feeds/proto/gen/user"
 	"google.golang.org/grpc"
 )
@@ -16,6 +17,12 @@ import (
 var migrationsFS embed.FS
 
 func main() {
+	shutdown, err := telemetry.Init(context.Background(), "user-service")
+	if err != nil {
+		log.Fatalf("telemetry: %v", err)
+	}
+	defer shutdown(context.Background())
+
 	cfg := config.Load("user")
 
 	db, err := storage.NewPostgresPool(context.Background(), cfg.Postgres.DSN(), 20)
@@ -36,7 +43,7 @@ func main() {
 		log.Fatalf("listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(telemetry.GRPCServerOptions(telemetry.StatsHandler())...)
 	user.RegisterUserServicevServer(s, svc)
 
 	log.Printf("user service listening on :9003")

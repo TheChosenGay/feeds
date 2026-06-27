@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	pb "github.com/TheChosenGay/feeds/proto/gen/feed"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,7 +22,10 @@ func NewFeedService() *FeedService {
 	if addr == "" {
 		addr = "localhost:9001"
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(telemetry.ClientStatsHandler()),
+	)
 	if err != nil {
 		log.Fatalf("feed grpc: %v", err)
 	}
