@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Postgres PostgresConfig
+	MySQL    MySQLConfig
 	Redis    RedisConfig
 	Kafka    KafkaConfig
 }
@@ -28,6 +29,20 @@ func (c PostgresConfig) DSN() string {
 		" sslmode=disable"
 }
 
+type MySQLConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+}
+
+func (c MySQLConfig) DSN() string {
+	return c.User + ":" + c.Password +
+		"@tcp(" + c.Host + ":" + strconv.Itoa(c.Port) + ")/" +
+		c.DBName + "?parseTime=true&charset=utf8mb4"
+}
+
 type RedisConfig struct {
 	Addr     string
 	Password string
@@ -46,6 +61,13 @@ func Load() *Config {
 			User:     getEnv("POSTGRES_USER", "feeds"),
 			Password: getEnv("POSTGRES_PASSWORD", "feeds_dev"),
 			DBName:   getEnv("POSTGRES_DB", "feeds"),
+		},
+		MySQL: MySQLConfig{
+			Host:     getEnv("MYSQL_HOST", "localhost"),
+			Port:     getEnvInt("MYSQL_PORT", 3306),
+			User:     getEnv("MYSQL_USER", "feeds"),
+			Password: getEnv("MYSQL_PASSWORD", "feeds_dev"),
+			DBName:   getEnv("MYSQL_DB", "feeds"),
 		},
 		Redis: RedisConfig{
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),

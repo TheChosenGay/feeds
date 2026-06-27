@@ -1,7 +1,0 @@
-HTTP/1.1 405 Method Not Allowed
-Allow: POST
-Content-Type: text/plain; charset=utf-8
-X-Content-Type-Options: nosniff
-Date: Sat, 30 May 2026 12:38:21 GMT
-Content-Length: 19
-
