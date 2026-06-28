@@ -25,17 +25,6 @@ const (
 		SELECT id, author_id, blocks, created_at, updated_at
 		FROM posts WHERE id = $1`
 
-	listFeedsSQL = `
-		SELECT id, author_id, blocks, created_at, updated_at
-		FROM posts
-		WHERE ($1 = '' OR author_id = $1)
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3`
-
-	countFeedsSQL = `
-		SELECT COUNT(*) FROM posts
-		WHERE ($1 = '' OR author_id = $1)`
-
 	deleteFeedSQL = `
 		DELETE FROM posts WHERE id = $1 AND author_id = $2`
 )
@@ -61,13 +50,31 @@ func (r *FeedRepository) FindByID(ctx context.Context, id string) (*Feed, error)
 }
 
 func (r *FeedRepository) List(ctx context.Context, authorID string, page, pageSize int) ([]*Feed, int, error) {
-	var total int
-	if err := r.db.QueryRowContext(ctx, countFeedsSQL, authorID).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count feeds: %w", err)
-	}
-
 	offset := (page - 1) * pageSize
-	rows, err := r.db.QueryContext(ctx, listFeedsSQL, authorID, pageSize, offset)
+
+	var total int
+	var rows *sql.Rows
+	var err error
+
+	if authorID == "" {
+		err = r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts`).Scan(&total)
+		if err != nil {
+			return nil, 0, fmt.Errorf("count feeds: %w", err)
+		}
+		rows, err = r.db.QueryContext(ctx,
+			`SELECT id, author_id, blocks, created_at, updated_at FROM posts
+			 ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+			pageSize, offset)
+	} else {
+		err = r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE author_id = $1`, authorID).Scan(&total)
+		if err != nil {
+			return nil, 0, fmt.Errorf("count feeds: %w", err)
+		}
+		rows, err = r.db.QueryContext(ctx,
+			`SELECT id, author_id, blocks, created_at, updated_at FROM posts
+			 WHERE author_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+			authorID, pageSize, offset)
+	}
 	if err != nil {
 		return nil, 0, fmt.Errorf("list feeds: %w", err)
 	}
