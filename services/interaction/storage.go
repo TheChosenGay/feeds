@@ -32,11 +32,17 @@ func NewCachedLikeStorage(repo *LikeRepo, rdb *redis.Client) *cachedLikeStorage 
 	return &cachedLikeStorage{inner: repo, redis: rdb}
 }
 
-// Like increments the Redis counter, adds user to the liked-by set, and persists to DB.
+// Like adds a like. Checks membership first to avoid unnecessary writes.
 func (s *cachedLikeStorage) Like(ctx context.Context, userID, feedID string) (int64, error) {
+	// Already liked — just return current count.
+	if s.redis.SIsMember(ctx, likedByKey(feedID), userID).Val() {
+		return s.Count(ctx, feedID)
+	}
+
+	// First-time like.
 	pipe := s.redis.Pipeline()
 	incr := pipe.Incr(ctx, likesKey(feedID))
-	sadd := pipe.SAdd(ctx, likedByKey(feedID), userID)
+	pipe.SAdd(ctx, likedByKey(feedID), userID)
 	pipe.Expire(ctx, likesKey(feedID), likeTTL)
 	pipe.Expire(ctx, likedByKey(feedID), likeTTL)
 	if _, err := pipe.Exec(ctx); err != nil {
@@ -47,14 +53,19 @@ func (s *cachedLikeStorage) Like(ctx context.Context, userID, feedID string) (in
 		fmt.Printf("[cachedLikeStorage] db insert failed (non-fatal): %v\n", err)
 	}
 
-	return incr.Val(), sadd.Err()
+	return incr.Val(), nil
 }
 
-// Unlike decrements the counter, removes user from the liked-by set, and deletes from DB.
+// Unlike removes a like. Checks membership first to avoid unnecessary writes.
 func (s *cachedLikeStorage) Unlike(ctx context.Context, userID, feedID string) (int64, error) {
+	// Not liked — just return current count.
+	if !s.redis.SIsMember(ctx, likedByKey(feedID), userID).Val() {
+		return s.Count(ctx, feedID)
+	}
+
 	pipe := s.redis.Pipeline()
 	decr := pipe.Decr(ctx, likesKey(feedID))
-	srem := pipe.SRem(ctx, likedByKey(feedID), userID)
+	pipe.SRem(ctx, likedByKey(feedID), userID)
 	pipe.Expire(ctx, likesKey(feedID), likeTTL)
 	pipe.Expire(ctx, likedByKey(feedID), likeTTL)
 	if _, err := pipe.Exec(ctx); err != nil {
@@ -71,7 +82,7 @@ func (s *cachedLikeStorage) Unlike(ctx context.Context, userID, feedID string) (
 		fmt.Printf("[cachedLikeStorage] db delete failed (non-fatal): %v\n", err)
 	}
 
-	return count, srem.Err()
+	return count, nil
 }
 
 // Count reads from Redis; falls back to DB if key is missing, then backfills.

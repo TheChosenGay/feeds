@@ -11,6 +11,7 @@ import (
 	"github.com/TheChosenGay/feeds/pkg/storage"
 	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	pb "github.com/TheChosenGay/feeds/proto/gen/interaction"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"google.golang.org/grpc"
 )
 
@@ -41,6 +42,11 @@ func main() {
 		log.Fatalf("redis: %v", err)
 	}
 	defer rdb.Close()
+
+	// OpenTelemetry instrumentation for Redis (traces + metrics)
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		log.Printf("redis tracing instrumentation: %v", err)
+	}
 
 	dispatcher := events.NewNoopDispatcher()
 
