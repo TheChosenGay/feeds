@@ -91,12 +91,12 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "go_goroutines",
-          "legendFormat": "{{job}}",
+          "expr": "go_goroutines{job=\"go-services\"}",
+          "legendFormat": "{{instance}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "feeds-prometheus"
           }
         }
       ],
@@ -169,12 +169,12 @@
       },
       "targets": [
         {
-          "expr": "go_memstats_alloc_bytes",
-          "legendFormat": "{{job}}",
+          "expr": "go_memstats_alloc_bytes{job=\"go-services\"}",
+          "legendFormat": "{{instance}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "feeds-prometheus"
           }
         }
       ],
@@ -252,7 +252,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "feeds-prometheus"
           }
         }
       ],
@@ -330,7 +330,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "feeds-prometheus"
           }
         }
       ],
@@ -403,12 +403,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count[1m])) by (http_method, http_route)",
-          "legendFormat": "{{http_method}} {{http_route}}",
+          "expr": "sum(rate(http_server_request_duration_seconds_count[1m])) by (http_request_method, http_route)",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "feeds-prometheus"
           }
         }
       ],

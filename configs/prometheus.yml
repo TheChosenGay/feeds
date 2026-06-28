@@ -12,3 +12,4 @@ scrape_configs:
           - 'gateway:9090'
           - 'feed-service:9090'
           - 'user-service:9090'
+          - 'interaction-service:9090'
