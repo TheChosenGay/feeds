@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/TheChosenGay/feeds/pkg/auth"
 	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	"github.com/TheChosenGay/feeds/proto/gen/user"
 	"google.golang.org/grpc"
@@ -98,8 +99,8 @@ func (s *UserService) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *UserService) handleUnregister(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	resp, err := s.userSvc.Unregister(r.Context(), &user.UnregisterReq{Id: id})
+	userID := auth.UserIDFromContext(r.Context())
+	resp, err := s.userSvc.Unregister(r.Context(), &user.UnregisterReq{Id: userID})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

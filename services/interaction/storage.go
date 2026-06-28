@@ -4,9 +4,17 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
+
+// likeTTL keeps cold like data from filling Redis indefinitely.
+const likeTTL = 30 * 24 * time.Hour
+
+// rebuildTTL is a short TTL for partial liked_by rebuilds. If a mid-rebuild
+// batch fails, the incomplete set expires quickly instead of lingering.
+const rebuildTTL = 30 * time.Minute
 
 func likesKey(feedID string) string  { return "likes:" + feedID }
 func likedByKey(feedID string) string { return "liked_by:" + feedID }
@@ -25,17 +33,16 @@ func NewCachedLikeStorage(repo *LikeRepo, rdb *redis.Client) *cachedLikeStorage 
 }
 
 // Like increments the Redis counter, adds user to the liked-by set, and persists to DB.
-// Returns the new count. DB write failure is logged but does not fail the request —
-// the counter is the source of truth and can be repaired from the DB.
 func (s *cachedLikeStorage) Like(ctx context.Context, userID, feedID string) (int64, error) {
 	pipe := s.redis.Pipeline()
 	incr := pipe.Incr(ctx, likesKey(feedID))
 	sadd := pipe.SAdd(ctx, likedByKey(feedID), userID)
+	pipe.Expire(ctx, likesKey(feedID), likeTTL)
+	pipe.Expire(ctx, likedByKey(feedID), likeTTL)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return 0, fmt.Errorf("storage: like: %w", err)
 	}
 
-	// Persist to DB. Failure is non-fatal: Redis wins, repair via DB COUNT later.
 	if err := s.inner.Insert(ctx, userID, feedID); err != nil {
 		fmt.Printf("[cachedLikeStorage] db insert failed (non-fatal): %v\n", err)
 	}
@@ -48,13 +55,15 @@ func (s *cachedLikeStorage) Unlike(ctx context.Context, userID, feedID string) (
 	pipe := s.redis.Pipeline()
 	decr := pipe.Decr(ctx, likesKey(feedID))
 	srem := pipe.SRem(ctx, likedByKey(feedID), userID)
+	pipe.Expire(ctx, likesKey(feedID), likeTTL)
+	pipe.Expire(ctx, likedByKey(feedID), likeTTL)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return 0, fmt.Errorf("storage: unlike: %w", err)
 	}
 
 	count := decr.Val()
 	if count < 0 {
-		s.redis.Set(ctx, likesKey(feedID), 0, 0)
+		s.redis.Set(ctx, likesKey(feedID), 0, likeTTL)
 		count = 0
 	}
 
@@ -75,18 +84,16 @@ func (s *cachedLikeStorage) Count(ctx context.Context, feedID string) (int64, er
 		return 0, fmt.Errorf("storage: get likes count: %w", err)
 	}
 
-	// Cache miss — fallback to DB and backfill Redis
 	dbCount, err := s.inner.Count(ctx, feedID)
 	if err != nil {
 		return 0, err
 	}
-	s.redis.Set(ctx, likesKey(feedID), dbCount, 0)
+	s.redis.Set(ctx, likesKey(feedID), dbCount, likeTTL)
 	return dbCount, nil
 }
 
-// BatchCount returns like counts for multiple feeds.
-// All keys are fetched in a single Redis pipeline round-trip.
-// Misses are resolved against the DB concurrently, then backfilled to Redis.
+// BatchCount returns like counts for multiple feeds in one pipeline round-trip.
+// Misses are resolved against the DB concurrently, then backfilled.
 func (s *cachedLikeStorage) BatchCount(ctx context.Context, feedIDs []string) (map[string]int64, error) {
 	if len(feedIDs) == 0 {
 		return map[string]int64{}, nil
@@ -94,9 +101,6 @@ func (s *cachedLikeStorage) BatchCount(ctx context.Context, feedIDs []string) (m
 
 	result := make(map[string]int64, len(feedIDs))
 
-	// 1. Pipeline all GETs — one round-trip.
-	//    Each pipe.Get() registers the command AND returns a *StringCmd handle.
-	//    After pipe.Exec(), results are automatically populated into each handle.
 	pipe := s.redis.Pipeline()
 	cmds := make([]*redis.StringCmd, len(feedIDs))
 	for i, id := range feedIDs {
@@ -106,7 +110,6 @@ func (s *cachedLikeStorage) BatchCount(ctx context.Context, feedIDs []string) (m
 		return nil, fmt.Errorf("storage: batch count: %w", err)
 	}
 
-	// 2. Separate hits from misses.
 	missed := make([]string, 0)
 	for i, id := range feedIDs {
 		count, err := cmds[i].Int64()
@@ -123,7 +126,6 @@ func (s *cachedLikeStorage) BatchCount(ctx context.Context, feedIDs []string) (m
 		return result, nil
 	}
 
-	// 3. Concurrent DB fallback. Each goroutine writes to its own index — no lock needed.
 	type missResult struct {
 		id    string
 		count int64
@@ -145,14 +147,13 @@ func (s *cachedLikeStorage) BatchCount(ctx context.Context, feedIDs []string) (m
 	}
 	wg.Wait()
 
-	// 4. Backfill Redis in a single pipeline.
 	backfill := s.redis.Pipeline()
 	for _, mr := range missResults {
 		if mr.id == "" {
-			continue // failed query, skip
+			continue
 		}
 		result[mr.id] = mr.count
-		backfill.Set(ctx, likesKey(mr.id), mr.count, 0)
+		backfill.Set(ctx, likesKey(mr.id), mr.count, likeTTL)
 	}
 	if _, err := backfill.Exec(ctx); err != nil {
 		fmt.Printf("[cachedLikeStorage] batch backfill redis: %v\n", err)
@@ -161,6 +162,7 @@ func (s *cachedLikeStorage) BatchCount(ctx context.Context, feedIDs []string) (m
 }
 
 // IsLiked checks the Redis set first, falls back to DB.
+// When the set has expired, it is fully rebuilt from post_likes.
 func (s *cachedLikeStorage) IsLiked(ctx context.Context, userID, feedID string) (bool, error) {
 	exists, err := s.redis.SIsMember(ctx, likedByKey(feedID), userID).Result()
 	if err == nil {
@@ -169,5 +171,50 @@ func (s *cachedLikeStorage) IsLiked(ctx context.Context, userID, feedID string) 
 	if err != redis.Nil {
 		return false, fmt.Errorf("storage: is liked: %w", err)
 	}
-	return s.inner.IsLiked(ctx, userID, feedID)
+
+	// Set expired — rebuild from DB
+	if err := s.rebuildLikedBy(ctx, feedID); err != nil {
+		fmt.Printf("[cachedLikeStorage] rebuild liked_by %s: %v\n", feedID, err)
+		return s.inner.IsLiked(ctx, userID, feedID)
+	}
+	// Re-check after rebuild
+	return s.redis.SIsMember(ctx, likedByKey(feedID), userID).Result()
+}
+
+// rebuildLikedBy repopulates the liked_by set from post_likes in batches.
+func (s *cachedLikeStorage) rebuildLikedBy(ctx context.Context, feedID string) error {
+	userIDs, err := s.inner.ListLikers(ctx, feedID)
+	if err != nil {
+		return err
+	}
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	const batchSize = 1000
+	key := likedByKey(feedID)
+
+	for start := 0; start < len(userIDs); start += batchSize {
+		end := min(start+batchSize, len(userIDs))
+		n := end - start
+
+		members := make([]any, n)
+		for i, uid := range userIDs[start:end] {
+			members[i] = uid
+		}
+
+		pipe := s.redis.Pipeline()
+		pipe.SAdd(ctx, key, members...)
+		// Graduated TTL: non-final batches get a short TTL so partial
+		// failures self-heal quickly. The final batch promotes to full TTL.
+		if end >= len(userIDs) {
+			pipe.Expire(ctx, key, likeTTL)
+		} else {
+			pipe.Expire(ctx, key, rebuildTTL)
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return fmt.Errorf("storage: rebuild liked_by: %w", err)
+		}
+	}
+	return nil
 }

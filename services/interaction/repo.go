@@ -4,7 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 )
+
+var uuidRE = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+func isValidUUID(s string) bool { return uuidRE.MatchString(s) }
 
 // --- Like ---
 
@@ -31,10 +36,16 @@ const (
 
 	isLikedSQL = `
 		SELECT EXISTS(SELECT 1 FROM post_likes WHERE user_id = $1 AND post_id = $2)`
+
+	listLikersSQL = `
+		SELECT user_id FROM post_likes WHERE post_id = $1`
 )
 
 // Insert adds a like row, idempotent (ON CONFLICT DO NOTHING).
 func (r *LikeRepo) Insert(ctx context.Context, userID, postID string) error {
+	if !isValidUUID(userID) || !isValidUUID(postID) {
+		return nil
+	}
 	_, err := r.db.ExecContext(ctx, likeSQL, userID, postID)
 	if err != nil {
 		return fmt.Errorf("insert like: %w", err)
@@ -44,6 +55,9 @@ func (r *LikeRepo) Insert(ctx context.Context, userID, postID string) error {
 
 // Delete removes a like row.
 func (r *LikeRepo) Delete(ctx context.Context, userID, postID string) error {
+	if !isValidUUID(userID) || !isValidUUID(postID) {
+		return nil
+	}
 	_, err := r.db.ExecContext(ctx, unlikeSQL, userID, postID)
 	if err != nil {
 		return fmt.Errorf("delete like: %w", err)
@@ -52,6 +66,9 @@ func (r *LikeRepo) Delete(ctx context.Context, userID, postID string) error {
 }
 
 func (r *LikeRepo) Count(ctx context.Context, postID string) (int64, error) {
+	if !isValidUUID(postID) {
+		return 0, nil
+	}
 	var count int64
 	err := r.db.QueryRowContext(ctx, countLikesSQL, postID).Scan(&count)
 	if err != nil {
@@ -61,12 +78,37 @@ func (r *LikeRepo) Count(ctx context.Context, postID string) (int64, error) {
 }
 
 func (r *LikeRepo) IsLiked(ctx context.Context, userID, postID string) (bool, error) {
+	if !isValidUUID(userID) || !isValidUUID(postID) {
+		return false, nil
+	}
 	var liked bool
 	err := r.db.QueryRowContext(ctx, isLikedSQL, userID, postID).Scan(&liked)
 	if err != nil {
 		return false, fmt.Errorf("is liked: %w", err)
 	}
 	return liked, nil
+}
+
+// ListLikers returns all user IDs who liked a post.
+func (r *LikeRepo) ListLikers(ctx context.Context, postID string) ([]string, error) {
+	if !isValidUUID(postID) {
+		return nil, nil
+	}
+	rows, err := r.db.QueryContext(ctx, listLikersSQL, postID)
+	if err != nil {
+		return nil, fmt.Errorf("list likers: %w", err)
+	}
+	defer rows.Close()
+
+	var userIDs []string
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return nil, fmt.Errorf("scan liker: %w", err)
+		}
+		userIDs = append(userIDs, uid)
+	}
+	return userIDs, rows.Err()
 }
 
 // --- Comment ---

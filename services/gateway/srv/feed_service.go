@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/TheChosenGay/feeds/pkg/auth"
 	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	pb "github.com/TheChosenGay/feeds/proto/gen/feed"
 	"google.golang.org/grpc"
@@ -42,12 +43,18 @@ func (s *FeedService) RegisterMux(ctx context.Context, mx *http.ServeMux) {
 }
 
 func (s *FeedService) handlePostFeed(w http.ResponseWriter, r *http.Request) {
-	var req pb.PostFeedReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var body struct {
+		Blocks []*pb.Block `json:"blocks"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resp, err := s.feedSvc.PostFeed(r.Context(), &req)
+	req := &pb.PostFeedReq{
+		AuthorId: auth.UserIDFromContext(r.Context()),
+		Blocks:   body.Blocks,
+	}
+	resp, err := s.feedSvc.PostFeed(r.Context(), req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -84,11 +91,7 @@ func (s *FeedService) handleListFeeds(w http.ResponseWriter, r *http.Request) {
 
 func (s *FeedService) handleDeleteFeed(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	req := &pb.DeleteFeedReq{Id: id}
-	// author_id from body (optional, for authorization)
-	if r.Body != nil && r.ContentLength > 0 {
-		json.NewDecoder(r.Body).Decode(req)
-	}
+	req := &pb.DeleteFeedReq{Id: id, AuthorId: auth.UserIDFromContext(r.Context())}
 	resp, err := s.feedSvc.DeleteFeed(r.Context(), req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

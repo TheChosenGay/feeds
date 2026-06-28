@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/TheChosenGay/feeds/pkg/auth"
 	"github.com/TheChosenGay/feeds/pkg/config"
 	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	"github.com/TheChosenGay/feeds/services/gateway/srv"
@@ -30,8 +31,10 @@ func main() {
 	svcManager.RegisterService(srv.NewInteractionService())
 	mux = svcManager.HandleMux(mux)
 
-	// -- otel http middleware 
-	handler := telemetry.HTTPMiddleware(mux, "gateway")
+	publicPaths := []string{"/user/register", "/user/login"}
+	var handler http.Handler = auth.Middleware(mux.ServeHTTP, publicPaths)
+	// otel http middleware (outer — traces everything including auth)
+	handler = telemetry.HTTPMiddleware(handler, "gateway")
 
 	addr := ":8080"
 	log.Printf("gateway listening on %s", addr)
