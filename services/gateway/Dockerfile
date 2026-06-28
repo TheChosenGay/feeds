@@ -8,6 +8,7 @@ COPY proto/gen/ ./proto/gen/
 COPY services/feed/ ./services/feed/
 COPY services/gateway/ ./services/gateway/
 COPY services/user/ ./services/user/
+COPY services/interaction/ ./services/interaction/
 
 RUN go build -o /app/gateway ./services/gateway
 

@@ -27,8 +27,10 @@ func main() {
 	svcManager := NewServiceManager()
 	svcManager.RegisterService(srv.NewUserService())
 	svcManager.RegisterService(srv.NewFeedService())
+	svcManager.RegisterService(srv.NewInteractionService())
 	mux = svcManager.HandleMux(mux)
 
+	// -- otel http middleware 
 	handler := telemetry.HTTPMiddleware(mux, "gateway")
 
 	addr := ":8080"

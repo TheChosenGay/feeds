@@ -22,7 +22,9 @@
       "Bash(python3 -m json.tool)",
       "Bash(docker run *)",
       "Bash(curl *)",
-      "Bash(docker exec feeds-gateway *)"
+      "Bash(docker exec feeds-gateway *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(GOWORK=go.work go build ./services/...)"
     ]
   }
 }

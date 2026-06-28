@@ -3,8 +3,10 @@ go 1.25.3
 use (
 	./pkg
 	./proto/gen/feed
+	./proto/gen/interaction
 	./proto/gen/user
 	./services/feed
 	./services/gateway
+	./services/interaction
 	./services/user
 )

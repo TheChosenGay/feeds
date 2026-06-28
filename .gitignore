@@ -3,12 +3,15 @@
 *.dll
 *.so
 *.dylib
+/feed
 /user
 /gateway
-/services/*/main
-/services/post/post
+/pkg/feed
+/pkg/user
 /services/feed/feed
 /services/user/user
+/services/gateway/gateway
+/services/interaction/interaction
 
 # Go
 /vendor/

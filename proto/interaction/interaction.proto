@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+option go_package = "github.com/TheChosenGay/feeds/proto/gen/interaction";
+
+package feeds.interaction.v1;
+
+// --- Like ---
+
+message LikeReq {
+    string user_id = 1;
+    string post_id = 2;
+}
+
+message LikeResp {
+    bool success = 1;
+    int64 like_count = 2;
+}
+
+message UnlikeReq {
+    string user_id = 1;
+    string post_id = 2;
+}
+
+message UnlikeResp {
+    bool success = 1;
+    int64 like_count = 2;
+}
+
+message IsLikedReq {
+    string user_id = 1;
+    string post_id = 2;
+}
+
+message IsLikedResp {
+    bool liked = 1;
+}
+
+message CountLikesReq {
+    string post_id = 1;
+}
+
+message CountLikesResp {
+    int64 count = 1;
+}
+
+message BatchCountLikesReq {
+    repeated string post_ids = 1;
+}
+
+message BatchCountLikesResp {
+    map<string, int64> counts = 1;
+}
+
+// --- Comment ---
+
+message Comment {
+    string id = 1;
+    string user_id = 2;
+    string post_id = 3;
+    string content = 4;
+    int64 created_at = 5;
+}
+
+message CreateCommentReq {
+    string user_id = 1;
+    string post_id = 2;
+    string content = 3;
+}
+
+message CreateCommentResp {
+    Comment comment = 1;
+}
+
+message ListCommentsReq {
+    string post_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ListCommentsResp {
+    repeated Comment comments = 1;
+    int32 total = 2;
+}
+
+message DeleteCommentReq {
+    string id = 1;
+    string user_id = 2;
+}
+
+message DeleteCommentResp {
+    bool success = 1;
+}
+
+// --- Bookmark ---
+
+message BookmarkReq {
+    string user_id = 1;
+    string post_id = 2;
+}
+
+message BookmarkResp {
+    bool success = 1;
+}
+
+message UnbookmarkReq {
+    string user_id = 1;
+    string post_id = 2;
+}
+
+message UnbookmarkResp {
+    bool success = 1;
+}
+
+message IsBookmarkedReq {
+    string user_id = 1;
+    string post_id = 2;
+}
+
+message IsBookmarkedResp {
+    bool bookmarked = 1;
+}
+
+service InteractionService {
+    rpc Like(LikeReq) returns (LikeResp);
+    rpc Unlike(UnlikeReq) returns (UnlikeResp);
+    rpc IsLiked(IsLikedReq) returns (IsLikedResp);
+    rpc CountLikes(CountLikesReq) returns (CountLikesResp);
+    rpc BatchCountLikes(BatchCountLikesReq) returns (BatchCountLikesResp);
+
+    rpc CreateComment(CreateCommentReq) returns (CreateCommentResp);
+    rpc ListComments(ListCommentsReq) returns (ListCommentsResp);
+    rpc DeleteComment(DeleteCommentReq) returns (DeleteCommentResp);
+
+    rpc Bookmark(BookmarkReq) returns (BookmarkResp);
+    rpc Unbookmark(UnbookmarkReq) returns (UnbookmarkResp);
+    rpc IsBookmarked(IsBookmarkedReq) returns (IsBookmarkedResp);
+}

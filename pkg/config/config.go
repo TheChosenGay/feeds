@@ -44,6 +44,8 @@ func (c PostgresConfig) MigrateURL() string {
 	}
 	q := u.Query()
 	q.Set("sslmode", "disable")
+	// Each service gets its own migration tracking table.
+	q.Set("x-migrations-table", c.Schema+"_schema_migrations")
 	u.RawQuery = q.Encode()
 	return u.String()
 }
