@@ -24,7 +24,23 @@
       "Bash(curl *)",
       "Bash(docker exec feeds-gateway *)",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(GOWORK=go.work go build ./services/...)"
+      "Bash(GOWORK=go.work go build ./services/...)",
+      "Bash(git *)",
+      "Bash(buf generate *)",
+      "Bash(go get *)",
+      "Bash(docker compose down *)",
+      "Bash(open -a Docker)",
+      "Bash(docker compose up *)",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(KAFKA_BROKERS=localhost:9092 REDIS_ADDR=localhost:6379 POSTGRES_DSN='host=localhost port=5432 user=feeds password=feeds_dev dbname=feeds sslmode=disable' timeout 10 python3 main.py)",
+      "Bash(pip3 install *)",
+      "Bash(uv --version)",
+      "Bash(uv lock *)",
+      "Bash(uv sync *)",
+      "Bash(python3 -c 'import redis; r=redis.Redis.from_url\\('\\\\''redis://localhost:6379/0'\\\\''\\); r.delete\\('\\\\''inbox:9905231f-dac8-4e01-b402-226adea50535'\\\\''\\); print\\('\\\\''cleared'\\\\''\\)')",
+      "Bash(python3 *)"
     ]
   }
 }
