@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/TheChosenGay/feeds/pkg/events"
 	pb "github.com/TheChosenGay/feeds/proto/gen/feed"
@@ -14,6 +15,9 @@ import (
 const inboxRatio = 4
 
 var hotPostsKey = "hot_posts"
+var postCacheTTL = 10 * time.Minute
+
+func postCacheKey(id string) string { return "post:" + id }
 
 type FeedService struct {
 	pb.UnimplementedFeedServiceServer
@@ -54,17 +58,42 @@ func (s *FeedService) PostFeed(ctx context.Context, req *pb.PostFeedReq) (*pb.Po
 }
 
 func (s *FeedService) GetFeed(ctx context.Context, req *pb.GetFeedReq) (*pb.GetFeedResp, error) {
-	f, err := s.repo.FindByID(ctx, req.Id)
+	return s.getPostContent(ctx, req.Id)
+}
+
+// getPostContent is the shared post fetch: Redis cache → DB fallback.
+// Timeline and GetFeed both call this, so hot posts cached by ranking worker
+// are served directly from Redis without touching PostgreSQL.
+func (s *FeedService) getPostContent(ctx context.Context, id string) (*pb.GetFeedResp, error) {
+	// 1. Redis cache
+	cached, err := s.rdb.Get(ctx, postCacheKey(id)).Result()
+	if err == nil {
+		var resp pb.GetFeedResp
+		if err := json.Unmarshal([]byte(cached), &resp); err == nil {
+			return &resp, nil
+		}
+		// corrupted cache → fall through to DB
+	}
+
+	// 2. DB
+	f, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetFeedResp{
+
+	resp := &pb.GetFeedResp{
 		Id:        f.ID,
 		AuthorId:  f.AuthorID,
 		Blocks:    blocksToProto(f.Blocks),
 		CreatedAt: f.CreatedAt.Unix(),
 		UpdatedAt: f.UpdatedAt.Unix(),
-	}, nil
+	}
+
+	// 3. Cache
+	data, _ := json.Marshal(resp)
+	s.rdb.Set(ctx, postCacheKey(id), data, postCacheTTL)
+
+	return resp, nil
 }
 
 func (s *FeedService) ListFeeds(ctx context.Context, req *pb.ListFeedsReq) (*pb.ListFeedsResp, error) {
@@ -144,37 +173,30 @@ func (s *FeedService) GetTimeline(ctx context.Context, req *pb.GetTimelineReq) (
 		merged = merged[:pageSize]
 	}
 
-	// Collect post IDs for DB fetch.
+	// Collect unique post IDs (dedup).
 	ids := make([]string, 0, len(merged))
 	seen := make(map[string]bool, len(merged))
 	for _, m := range merged {
-		id := m.postID
-		if seen[id] {
+		if seen[m.postID] {
 			continue
 		}
-		seen[id] = true
-		ids = append(ids, id)
+		seen[m.postID] = true
+		ids = append(ids, m.postID)
 	}
 
-	// Batch fetch content.
-	feeds, err := s.repo.FindByIDs(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to proto.
+	// Fetch content via getPostContent (Redis cache → DB fallback).
+	// Hot posts pre-cached by ranking worker are served from Redis.
 	resp := &pb.GetTimelineResp{
 		NextCursor: int64(page + 1),
 		HasMore:    len(merged) >= pageSize,
 	}
-	for _, f := range feeds {
-		resp.Feeds = append(resp.Feeds, &pb.GetFeedResp{
-			Id:        f.ID,
-			AuthorId:  f.AuthorID,
-			Blocks:    blocksToProto(f.Blocks),
-			CreatedAt: f.CreatedAt.Unix(),
-			UpdatedAt: f.UpdatedAt.Unix(),
-		})
+	for _, id := range ids {
+		feed, err := s.getPostContent(ctx, id)
+		if err != nil {
+			log.Printf("[feed] timeline getPostContent(%s): %v", id, err)
+			continue
+		}
+		resp.Feeds = append(resp.Feeds, feed)
 	}
 	return resp, nil
 }

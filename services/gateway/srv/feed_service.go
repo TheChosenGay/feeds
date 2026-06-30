@@ -39,8 +39,8 @@ func (s *FeedService) RegisterMux(ctx context.Context, mx *http.ServeMux) {
 	mx.HandleFunc("GET /feeds/{id}", s.handleGetFeed)
 	mx.HandleFunc("GET /feeds", s.handleListFeeds)
 	mx.HandleFunc("DELETE /feeds/{id}", s.handleDeleteFeed)
-	mx.HandleFunc("GET /timeline", s.handleGetTimeline)
-	log.Println("[feed] routes registered: POST /feeds, GET /feeds/{id}, GET /feeds, DELETE /feeds/{id}, GET /timeline")
+	mx.HandleFunc("GET /feeds/timeline", s.handleGetTimeline)
+	log.Println("[feed] routes registered: POST /feeds, GET /feeds/timeline, GET /feeds/{id}, GET /feeds, DELETE /feeds/{id}")
 }
 
 func (s *FeedService) handlePostFeed(w http.ResponseWriter, r *http.Request) {
