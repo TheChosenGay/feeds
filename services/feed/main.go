@@ -36,6 +36,12 @@ func main() {
 		log.Fatalf("migrations: %v", err)
 	}
 
+	rdb, err := storage.NewRedisClient(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
+	if err != nil {
+		log.Fatalf("redis: %v", err)
+	}
+	defer rdb.Close()
+
 	repo := NewFeedRepository(db)
 	var disp events.Dispatcher
 	kdisp, err := events.NewKafkaDispatcher(cfg.Kafka.Brokers)
@@ -45,7 +51,7 @@ func main() {
 	} else {
 		disp = kdisp
 	}
-	svc := NewFeedService(repo, disp)
+	svc := NewFeedService(repo, disp, rdb)
 
 	lis, err := net.Listen("tcp", ":9001")
 	if err != nil {

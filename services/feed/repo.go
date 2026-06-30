@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // FeedRepository handles all feed database operations.
@@ -89,6 +90,52 @@ func (r *FeedRepository) List(ctx context.Context, authorID string, page, pageSi
 		feeds = append(feeds, f)
 	}
 	return feeds, total, rows.Err()
+}
+
+// FindByIDs returns posts by their IDs, preserving the order of the given ids.
+func (r *FeedRepository) FindByIDs(ctx context.Context, ids []string) ([]*Feed, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(
+		`SELECT id, author_id, blocks, created_at, updated_at FROM posts WHERE id IN (%s)`,
+		strings.Join(placeholders, ","),
+	)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("find by ids: %w", err)
+	}
+	defer rows.Close()
+
+	// Build a map so we can return in the requested order.
+	m := make(map[string]*Feed, len(ids))
+	for rows.Next() {
+		f := &Feed{}
+		if err := rows.Scan(&f.ID, &f.AuthorID, &f.Blocks, &f.CreatedAt, &f.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan feed: %w", err)
+		}
+		m[f.ID] = f
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make([]*Feed, 0, len(ids))
+	for _, id := range ids {
+		if f, ok := m[id]; ok {
+			result = append(result, f)
+		}
+	}
+	return result, nil
 }
 
 func (r *FeedRepository) Delete(ctx context.Context, id, authorID string) error {

@@ -7,19 +7,26 @@ import (
 
 	"github.com/TheChosenGay/feeds/pkg/events"
 	pb "github.com/TheChosenGay/feeds/proto/gen/feed"
+	"github.com/redis/go-redis/v9"
 )
+
+// Slot ratio: 4 inbox posts → 1 hot post.
+const inboxRatio = 4
+
+var hotPostsKey = "hot_posts"
 
 type FeedService struct {
 	pb.UnimplementedFeedServiceServer
 	repo       *FeedRepository
 	dispatcher events.Dispatcher
+	rdb        *redis.Client
 }
 
-func NewFeedService(repo *FeedRepository, disp events.Dispatcher) *FeedService {
+func NewFeedService(repo *FeedRepository, disp events.Dispatcher, rdb *redis.Client) *FeedService {
 	if disp == nil {
 		disp = events.NewNoopDispatcher()
 	}
-	return &FeedService{repo: repo, dispatcher: disp}
+	return &FeedService{repo: repo, dispatcher: disp, rdb: rdb}
 }
 
 func (s *FeedService) PostFeed(ctx context.Context, req *pb.PostFeedReq) (*pb.PostFeedResp, error) {
@@ -92,6 +99,114 @@ func (s *FeedService) DeleteFeed(ctx context.Context, req *pb.DeleteFeedReq) (*p
 		return &pb.DeleteFeedResp{Success: false}, err
 	}
 	return &pb.DeleteFeedResp{Success: true}, nil
+}
+
+// GetTimeline builds a personalized feed from inbox + hot_posts with slot-based
+// interleaving (4 inbox : 1 hot). Cursor doubles as page number (0 = first page).
+func (s *FeedService) GetTimeline(ctx context.Context, req *pb.GetTimelineReq) (*pb.GetTimelineResp, error) {
+	page := int(req.Cursor)
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 || pageSize > 50 {
+		pageSize = 20
+	}
+
+	// How many from each source (per page, accounting for interleave ratio).
+	hotPerPage := pageSize / (inboxRatio + 1)
+	if hotPerPage < 1 {
+		hotPerPage = 1
+	}
+	inboxPerPage := pageSize - hotPerPage
+
+	inboxKey := "inbox:" + req.UserId
+
+	// Fetch from both ZSETs (score desc = newest first).
+	inboxStart := int64((page - 1) * inboxPerPage)
+	inboxStop := inboxStart + int64(inboxPerPage) + int64(hotPerPage) // extra for dedup
+
+	hotStart := int64((page - 1) * hotPerPage)
+	hotStop := hotStart + int64(hotPerPage)
+
+	inboxItems, err := s.rdb.ZRevRangeWithScores(ctx, inboxKey, inboxStart, inboxStop-1).Result()
+	if err != nil && err != redis.Nil {
+		log.Printf("[feed] timeline inbox error: %v", err)
+	}
+	hotItems, err := s.rdb.ZRevRangeWithScores(ctx, hotPostsKey, hotStart, hotStop-1).Result()
+	if err != nil && err != redis.Nil {
+		log.Printf("[feed] timeline hot error: %v", err)
+	}
+
+	// Interleave: put 1 hot every inboxRatio inbox posts.
+	merged := interleave(inboxItems, hotItems, inboxRatio)
+	if len(merged) > pageSize {
+		merged = merged[:pageSize]
+	}
+
+	// Collect post IDs for DB fetch.
+	ids := make([]string, 0, len(merged))
+	seen := make(map[string]bool, len(merged))
+	for _, m := range merged {
+		id := m.postID
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+
+	// Batch fetch content.
+	feeds, err := s.repo.FindByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to proto.
+	resp := &pb.GetTimelineResp{
+		NextCursor: int64(page + 1),
+		HasMore:    len(merged) >= pageSize,
+	}
+	for _, f := range feeds {
+		resp.Feeds = append(resp.Feeds, &pb.GetFeedResp{
+			Id:        f.ID,
+			AuthorId:  f.AuthorID,
+			Blocks:    blocksToProto(f.Blocks),
+			CreatedAt: f.CreatedAt.Unix(),
+			UpdatedAt: f.UpdatedAt.Unix(),
+		})
+	}
+	return resp, nil
+}
+
+// interleaveSlot holds a single post reference from a ZSET.
+type interleaveSlot struct {
+	postID string
+	score  float64
+	source string // "inbox" or "hot"
+}
+
+// interleave merges inbox and hot items with a slot pattern.
+// Every ratio inbox items are followed by 1 hot item.
+func interleave(inbox, hot []redis.Z, ratio int) []interleaveSlot {
+	result := make([]interleaveSlot, 0, len(inbox)+len(hot))
+	hi := 0
+
+	for i, z := range inbox {
+		result = append(result, interleaveSlot{postID: z.Member.(string), score: z.Score, source: "inbox"})
+
+		// After every 'ratio' inbox items, insert a hot item.
+		if (i+1)%ratio == 0 && hi < len(hot) {
+			result = append(result, interleaveSlot{postID: hot[hi].Member.(string), score: hot[hi].Score, source: "hot"})
+			hi++
+		}
+	}
+	// Append remaining hot items at the end.
+	for hi < len(hot) {
+		result = append(result, interleaveSlot{postID: hot[hi].Member.(string), score: hot[hi].Score, source: "hot"})
+		hi++
+	}
+	return result
 }
 
 func blocksFromProto(pbs []*pb.Block) Blocks {

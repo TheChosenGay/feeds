@@ -39,7 +39,8 @@ func (s *FeedService) RegisterMux(ctx context.Context, mx *http.ServeMux) {
 	mx.HandleFunc("GET /feeds/{id}", s.handleGetFeed)
 	mx.HandleFunc("GET /feeds", s.handleListFeeds)
 	mx.HandleFunc("DELETE /feeds/{id}", s.handleDeleteFeed)
-	log.Println("[feed] routes registered: POST /feeds, GET /feeds/{id}, GET /feeds, DELETE /feeds/{id}")
+	mx.HandleFunc("GET /timeline", s.handleGetTimeline)
+	log.Println("[feed] routes registered: POST /feeds, GET /feeds/{id}, GET /feeds, DELETE /feeds/{id}, GET /timeline")
 }
 
 func (s *FeedService) handlePostFeed(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +94,23 @@ func (s *FeedService) handleDeleteFeed(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	req := &pb.DeleteFeedReq{Id: id, AuthorId: auth.UserIDFromContext(r.Context())}
 	resp, err := s.feedSvc.DeleteFeed(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, resp)
+}
+
+func (s *FeedService) handleGetTimeline(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+	cursor := parseInt(r.URL.Query().Get("cursor"), 0)
+	pageSize := parseInt(r.URL.Query().Get("page_size"), 20)
+
+	resp, err := s.feedSvc.GetTimeline(r.Context(), &pb.GetTimelineReq{
+		UserId:   userID,
+		Cursor:   int64(cursor),
+		PageSize: int32(pageSize),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -40,6 +40,7 @@ services:
     environment:
       POSTGRES_HOST: postgres
       KAFKA_BROKERS: kafka:29092
+      REDIS_ADDR: redis:6379
     healthcheck:
       test: ["CMD", "sh", "-c", "nc -z localhost 9001"]
       interval: 5s
