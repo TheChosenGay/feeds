@@ -39,6 +39,7 @@ services:
         condition: service_healthy
     environment:
       POSTGRES_HOST: postgres
+      KAFKA_BROKERS: kafka:29092
     healthcheck:
       test: ["CMD", "sh", "-c", "nc -z localhost 9001"]
       interval: 5s
@@ -101,6 +102,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  fanout-worker:
+    build:
+      context: .
+      dockerfile: workers/fanout/Dockerfile
+    container_name: feeds-fanout
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      REDIS_ADDR: redis:6379
+      POSTGRES_DSN: host=postgres port=5432 user=feeds password=feeds_dev dbname=feeds sslmode=disable
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine

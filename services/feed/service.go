@@ -2,17 +2,24 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"log"
 
+	"github.com/TheChosenGay/feeds/pkg/events"
 	pb "github.com/TheChosenGay/feeds/proto/gen/feed"
 )
 
 type FeedService struct {
 	pb.UnimplementedFeedServiceServer
-	repo *FeedRepository
+	repo       *FeedRepository
+	dispatcher events.Dispatcher
 }
 
-func NewFeedService(repo *FeedRepository) *FeedService {
-	return &FeedService{repo: repo}
+func NewFeedService(repo *FeedRepository, disp events.Dispatcher) *FeedService {
+	if disp == nil {
+		disp = events.NewNoopDispatcher()
+	}
+	return &FeedService{repo: repo, dispatcher: disp}
 }
 
 func (s *FeedService) PostFeed(ctx context.Context, req *pb.PostFeedReq) (*pb.PostFeedResp, error) {
@@ -21,6 +28,21 @@ func (s *FeedService) PostFeed(ctx context.Context, req *pb.PostFeedReq) (*pb.Po
 	if err != nil {
 		return nil, err
 	}
+
+	// Fire-and-forget: notify fanout workers so they can push to follower inboxes.
+	body, _ := json.Marshal(map[string]interface{}{
+		"post_id":        f.ID,
+		"author_id":      req.AuthorId,
+		"created_at":     f.CreatedAt.Unix(),
+		"follower_count": 0, // TODO: query user service for actual count
+	})
+	s.dispatcher.Dispatch(ctx, events.Event{
+		Topic: "post.created",
+		Key:   f.ID,
+		Body:  body,
+	})
+	log.Printf("[feed] post.created dispatched: id=%s author=%s", f.ID, req.AuthorId)
+
 	return &pb.PostFeedResp{Id: f.ID}, nil
 }
 

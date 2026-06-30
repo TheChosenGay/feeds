@@ -10,3 +10,10 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// Follow represents a follow relationship.
+type Follow struct {
+	FollowerID string    `json:"follower_id"`
+	FollowedID string    `json:"followed_id"`
+	CreatedAt  time.Time `json:"created_at"`
+}

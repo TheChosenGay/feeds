@@ -36,7 +36,8 @@ func main() {
 	}
 
 	repo := NewUserRepository(db)
-	svc := NewUserService(repo)
+	followRepo := NewFollowRepo(db)
+	svc := NewUserService(repo, followRepo)
 
 	lis, err := net.Listen("tcp", ":9003")
 	if err != nil {

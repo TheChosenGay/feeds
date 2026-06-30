@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/TheChosenGay/feeds/pkg/config"
+	"github.com/TheChosenGay/feeds/pkg/events"
 	"github.com/TheChosenGay/feeds/pkg/storage"
 	"github.com/TheChosenGay/feeds/pkg/telemetry"
 	pb "github.com/TheChosenGay/feeds/proto/gen/feed"
@@ -36,7 +37,15 @@ func main() {
 	}
 
 	repo := NewFeedRepository(db)
-	svc := NewFeedService(repo)
+	var disp events.Dispatcher
+	kdisp, err := events.NewKafkaDispatcher(cfg.Kafka.Brokers)
+	if err != nil {
+		log.Printf("kafka dispatcher unavailable, falling back to noop: %v", err)
+		disp = events.NewNoopDispatcher()
+	} else {
+		disp = kdisp
+	}
+	svc := NewFeedService(repo, disp)
 
 	lis, err := net.Listen("tcp", ":9001")
 	if err != nil {

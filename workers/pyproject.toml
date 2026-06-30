@@ -1,12 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "feeds-workers"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "confluent-kafka>=2.3.0",
+    "kafka-python>=2.0",
     "redis>=5.0.0",
     "psycopg[binary]>=3.1.0",
 ]
+
+[project.scripts]
+fanout = "fanout.main:main"
+
+[tool.uv]
+package = false
 
 [tool.ruff]
 line-length = 100

@@ -48,7 +48,14 @@ func main() {
 		log.Printf("redis tracing instrumentation: %v", err)
 	}
 
-	dispatcher := events.NewNoopDispatcher()
+	var dispatcher events.Dispatcher
+	kdisp, err := events.NewKafkaDispatcher(cfg.Kafka.Brokers)
+	if err != nil {
+		log.Printf("kafka dispatcher unavailable, falling back to noop: %v", err)
+		dispatcher = events.NewNoopDispatcher()
+	} else {
+		dispatcher = kdisp
+	}
 
 	likeRepo := NewLikeRepo(db)
 	likes := NewCachedLikeStorage(likeRepo, rdb)

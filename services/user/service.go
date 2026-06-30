@@ -15,11 +15,12 @@ var jwtSecret = []byte("feeds-dev-secret") // TODO: load from config/env
 
 type UserService struct {
 	user.UnimplementedUserServicevServer
-	repo *UserRepository
+	repo       *UserRepository
+	followRepo *FollowRepo
 }
 
-func NewUserService(repo *UserRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo *UserRepository, followRepo *FollowRepo) *UserService {
+	return &UserService{repo: repo, followRepo: followRepo}
 }
 
 func (s *UserService) Register(ctx context.Context, req *user.RegisterReq) (*user.RegisterResp, error) {
@@ -76,4 +77,44 @@ func (s *UserService) Unregister(ctx context.Context, req *user.UnregisterReq) (
 		return &user.UnregisterResp{Success: false}, err
 	}
 	return &user.UnregisterResp{Success: true}, nil
+}
+
+// --- Follow ---
+
+func (s *UserService) Follow(ctx context.Context, req *user.FollowReq) (*user.FollowResp, error) {
+	if err := s.followRepo.Follow(ctx, req.FollowerId, req.FollowedId); err != nil {
+		return &user.FollowResp{Success: false}, err
+	}
+	return &user.FollowResp{Success: true}, nil
+}
+
+func (s *UserService) Unfollow(ctx context.Context, req *user.UnfollowReq) (*user.UnfollowResp, error) {
+	if err := s.followRepo.Unfollow(ctx, req.FollowerId, req.FollowedId); err != nil {
+		return &user.UnfollowResp{Success: false}, err
+	}
+	return &user.UnfollowResp{Success: true}, nil
+}
+
+func (s *UserService) GetFollowers(ctx context.Context, req *user.GetFollowersReq) (*user.GetFollowersResp, error) {
+	ids, err := s.followRepo.GetFollowers(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	return &user.GetFollowersResp{UserIds: ids}, nil
+}
+
+func (s *UserService) GetFollowing(ctx context.Context, req *user.GetFollowingReq) (*user.GetFollowingResp, error) {
+	ids, err := s.followRepo.GetFollowing(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	return &user.GetFollowingResp{UserIds: ids}, nil
+}
+
+func (s *UserService) IsFollowing(ctx context.Context, req *user.IsFollowingReq) (*user.IsFollowingResp, error) {
+	ok, err := s.followRepo.IsFollowing(ctx, req.FollowerId, req.FollowedId)
+	if err != nil {
+		return nil, err
+	}
+	return &user.IsFollowingResp{IsFollowing: ok}, nil
 }

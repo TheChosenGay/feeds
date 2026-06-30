@@ -41,9 +41,57 @@ message LoginResp {
     string token = 2;
 }
 
+message FollowReq {
+    string follower_id = 1;
+    string followed_id = 2;
+}
+
+message FollowResp {
+    bool success = 1;
+}
+
+message UnfollowReq {
+    string follower_id = 1;
+    string followed_id = 2;
+}
+
+message UnfollowResp {
+    bool success = 1;
+}
+
+message GetFollowersReq {
+    string user_id = 1;
+}
+
+message GetFollowersResp {
+    repeated string user_ids = 1;
+}
+
+message GetFollowingReq {
+    string user_id = 1;
+}
+
+message GetFollowingResp {
+    repeated string user_ids = 1;
+}
+
+message IsFollowingReq {
+    string follower_id = 1;
+    string followed_id = 2;
+}
+
+message IsFollowingResp {
+    bool is_following = 1;
+}
+
 service UserServicev {
     rpc Register(RegisterReq) returns (RegisterResp);
     rpc GetInfo(GetInfoReq) returns (GetInfoResp);
     rpc Unregister(UnregisterReq) returns (UnregisterResp);
     rpc Login(LoginReq) returns (LoginResp);
+    rpc Follow(FollowReq) returns (FollowResp);
+    rpc Unfollow(UnfollowReq) returns (UnfollowResp);
+    rpc GetFollowers(GetFollowersReq) returns (GetFollowersResp);
+    rpc GetFollowing(GetFollowingReq) returns (GetFollowingResp);
+    rpc IsFollowing(IsFollowingReq) returns (IsFollowingResp);
 }
