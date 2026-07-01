@@ -40,6 +40,17 @@ func (s *FeedService) PostFeed(ctx context.Context, req *pb.PostFeedReq) (*pb.Po
 		return nil, err
 	}
 
+	// Cache the new post immediately so it's available without a DB hit.
+	resp := &pb.GetFeedResp{
+		Id:        f.ID,
+		AuthorId:  f.AuthorID,
+		Blocks:    blocksToProto(f.Blocks),
+		CreatedAt: f.CreatedAt.Unix(),
+		UpdatedAt: f.UpdatedAt.Unix(),
+	}
+	data, _ := json.Marshal(resp)
+	s.rdb.Set(ctx, postCacheKey(f.ID), data, postCacheTTL)
+
 	// Fire-and-forget: notify fanout workers so they can push to follower inboxes.
 	body, _ := json.Marshal(map[string]interface{}{
 		"post_id":        f.ID,
