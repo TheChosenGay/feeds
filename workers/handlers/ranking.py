@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 HOT_POSTS_KEY = "hot_posts"
 POST_CACHE_TTL = 600  # 10 minutes, matches Go postCacheTTL
 RANKING_WINDOW_DAYS = 7
-TOP_N = 1000
+TOP_N = 200
 
 
 def run_ranking(*, redis, pg) -> None:
