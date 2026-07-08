@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+option go_package = "github.com/TheChosenGay/feeds/proto/gen/notify";
+
+package feeds.notify.v1;
+
+// NotifyService 提供通知推送和历史查询功能。
+// 其他服务通过此接口发送通知，notify 内部通过 comet gRPC 投递到在线用户。
+service NotifyService {
+    // Push 推送一条通知。内部会存储到数据库并尝试通过 comet 实时投递。
+    rpc Push(PushReq) returns (PushResp);
+
+    // ListNotifications 查询用户的通知历史，按时间倒序。
+    rpc ListNotifications(ListNotificationsReq) returns (ListNotificationsResp);
+
+    // MarkRead 标记通知为已读。notification_id 为 "all" 时标记全部。
+    rpc MarkRead(MarkReadReq) returns (MarkReadResp);
+
+    // GetUnreadCount 获取未读通知数量（用于红点展示）。
+    rpc GetUnreadCount(GetUnreadCountReq) returns (GetUnreadCountResp);
+}
+
+// ============================================================
+// Push
+// ============================================================
+
+message PushReq {
+    string user_id = 1;   // 目标用户 ID
+    string type    = 2;   // like / comment / follow / system
+    string title   = 3;   // 通知标题
+    string body    = 4;   // 通知正文
+    bytes  payload = 5;   // 业务自定义数据 (JSON)，透传给客户端
+}
+
+message PushResp {
+    int64  id              = 1; // 通知记录 ID
+    bool   delivered_ws    = 2; // 是否通过 comet 实时投递成功
+    int32  device_count    = 3; // 投递时的在线设备数
+}
+
+// ============================================================
+// ListNotifications
+// ============================================================
+
+message ListNotificationsReq {
+    string user_id  = 1; // 目标用户
+    int64  cursor   = 2; // 游标（上一页最后一条的 id），首次传 0
+    int32  page_size = 3; // 每页数量，最大 50
+}
+
+message ListNotificationsResp {
+    repeated NotificationItem items = 1;
+    int64  next_cursor              = 2; // 下一页游标，0 表示没有更多
+}
+
+message NotificationItem {
+    int64  id         = 1;
+    string type       = 2;
+    string title      = 3;
+    string body       = 4;
+    bytes  payload    = 5;
+    bool   is_read    = 6;
+    int64  created_at = 7; // unix 秒
+}
+
+// ============================================================
+// MarkRead
+// ============================================================
+
+message MarkReadReq {
+    string user_id          = 1;
+    string notification_id  = 2; // "all" 标记全部已读，否则传 id
+}
+
+message MarkReadResp {
+    bool ok = 1;
+}
+
+// ============================================================
+// GetUnreadCount
+// ============================================================
+
+message GetUnreadCountReq {
+    string user_id = 1;
+}
+
+message GetUnreadCountResp {
+    int64 count = 1;
+}

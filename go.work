@@ -5,10 +5,12 @@ use (
 	./proto/gen/comet
 	./proto/gen/feed
 	./proto/gen/interaction
+	./proto/gen/notify
 	./proto/gen/user
 	./services/comet
 	./services/feed
 	./services/gateway
 	./services/interaction
+	./services/notify
 	./services/user
 )

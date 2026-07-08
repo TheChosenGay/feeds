@@ -48,6 +48,25 @@ services:
       timeout: 5s
       retries: 5
 
+  notify:
+    build:
+      context: .
+      dockerfile: services/notify/Dockerfile
+    container_name: feeds-notify
+    ports:
+      - "9007:9007"
+    depends_on:
+      comet:
+        condition: service_healthy
+    environment:
+      NOTIFY_COMET_ADDR: comet:9006
+      NOTIFY_DB_DSN: postgres://feeds:feeds@postgres:5432/feeds?sslmode=disable
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 9007"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   feed-service:
     build:
       context: .

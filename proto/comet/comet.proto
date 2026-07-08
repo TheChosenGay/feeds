@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 option go_package = "github.com/TheChosenGay/feeds/proto/gen/comet";
+option py_generic_services = false;
 
 package feeds.comet.v1;
 
