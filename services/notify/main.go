@@ -46,7 +46,7 @@ func main() {
 	}
 	defer cometConn.Close()
 
-	cometCli := cometpb.NewCometServiceClient(cometConn)
+	cometCli := cometpb.NewLiveServiceClient(cometConn)
 	svc := NewNotifyService(&notifyStore{db: db}, cometCli)
 
 	lis, err := net.Listen("tcp", ":9007")

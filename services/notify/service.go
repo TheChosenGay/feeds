@@ -14,10 +14,10 @@ import (
 type notifyService struct {
 	pb.UnimplementedNotifyServiceServer
 	store    *notifyStore
-	cometCli cometpb.CometServiceClient
+	cometCli cometpb.LiveServiceClient
 }
 
-func NewNotifyService(store *notifyStore, cometCli cometpb.CometServiceClient) *notifyService {
+func NewNotifyService(store *notifyStore, cometCli cometpb.LiveServiceClient) *notifyService {
 	return &notifyService{store: store, cometCli: cometCli}
 }
 

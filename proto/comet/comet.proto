@@ -5,8 +5,8 @@ option py_generic_services = false;
 
 package feeds.comet.v1;
 
-// CometService 供其他服务（gateway、interaction 等）远程推送消息到 comet。
-service CometService {
+// LiveService 长连接实时通信服务。
+service LiveService {
     // PushRoom 向指定房间广播消息。
     rpc PushRoom(PushRoomReq) returns (PushResp);
 

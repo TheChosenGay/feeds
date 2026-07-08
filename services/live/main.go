@@ -60,7 +60,7 @@ func main() {
 	// gRPC server
 	grpcSrv := grpc.NewServer(telemetry.GRPCServerOptions(telemetry.StatsHandler())...)
 	reflection.Register(grpcSrv)
-	pb.RegisterCometServiceServer(grpcSrv, &cometGRPC{core: core})
+	pb.RegisterLiveServiceServer(grpcSrv, &liveGRPC{core: core})
 
 	lis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("comet grpc listening on %s", grpcAddr)
+		log.Printf("live gRPC listening on %s", grpcAddr)
 		if err := grpcSrv.Serve(lis); err != nil {
 			log.Fatalf("grpc serve: %v", err)
 		}
@@ -105,23 +105,23 @@ func (b *cometBusiness) OnMessage(ctx context.Context, connID string, userID str
 	return nil
 }
 
-// cometGRPC 实现 CometServiceServer。
-type cometGRPC struct {
-	pb.UnimplementedCometServiceServer
+// liveGRPC 实现 LiveServiceServer。
+type liveGRPC struct {
+	pb.UnimplementedLiveServiceServer
 	core *comet.Core
 }
 
-func (g *cometGRPC) PushRoom(ctx context.Context, req *pb.PushRoomReq) (*pb.PushResp, error) {
+func (g *liveGRPC) PushRoom(ctx context.Context, req *pb.PushRoomReq) (*pb.PushResp, error) {
 	delivered := g.core.Push(req.RoomId, req.Payload)
 	return &pb.PushResp{Delivered: int32(delivered)}, nil
 }
 
-func (g *cometGRPC) PushUser(ctx context.Context, req *pb.PushUserReq) (*pb.PushResp, error) {
+func (g *liveGRPC)PushUser(ctx context.Context, req *pb.PushUserReq) (*pb.PushResp, error) {
 	delivered := g.core.Push(req.UserId, req.Payload)
 	return &pb.PushResp{Delivered: int32(delivered)}, nil
 }
 
-func (g *cometGRPC) IsOnline(ctx context.Context, req *pb.OnlineReq) (*pb.OnlineResp, error) {
+func (g *liveGRPC)IsOnline(ctx context.Context, req *pb.OnlineReq) (*pb.OnlineResp, error) {
 	online, count := g.core.RoomOnline(req.UserId)
 	return &pb.OnlineResp{Online: online, DeviceCount: int32(count)}, nil
 }
