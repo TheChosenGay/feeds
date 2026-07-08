@@ -42,6 +42,13 @@ Thumbs.db
 # Proto generated
 proto/gen/
 
+# Bench / test binaries
+bench
+notify
+test.out
+*.test
+*.prof
+
 # Docker volumes
 postgres_data/
 redis_data/

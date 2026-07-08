@@ -1,3 +1,7 @@
+CREATE SCHEMA IF NOT EXISTS notify;
+
+SET search_path TO notify;
+
 CREATE TABLE IF NOT EXISTS notifications (
     id         BIGSERIAL PRIMARY KEY,
     user_id    TEXT NOT NULL,

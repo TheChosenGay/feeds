@@ -34,12 +34,16 @@ func (s *notifyService) Push(ctx context.Context, req *pb.PushReq) (*pb.PushResp
 	}
 
 	// 2. 写入数据库（在线离线都存，作为通知历史 + 离线队列）
+	payload := req.Payload
+	if len(payload) == 0 {
+		payload = []byte("{}")
+	}
 	id, err := s.store.Insert(ctx, &Notification{
 		UserID:  req.UserId,
 		Type:    req.Type,
 		Title:   req.Title,
 		Body:    req.Body,
-		Payload: req.Payload,
+		Payload: payload,
 	})
 	if err != nil {
 		log.Printf("[notify] insert error: %v", err)
