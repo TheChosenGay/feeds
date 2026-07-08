@@ -122,5 +122,6 @@ func (g *cometGRPC) PushUser(ctx context.Context, req *pb.PushUserReq) (*pb.Push
 }
 
 func (g *cometGRPC) IsOnline(ctx context.Context, req *pb.OnlineReq) (*pb.OnlineResp, error) {
-	return &pb.OnlineResp{Online: false, DeviceCount: 0}, nil
+	online, count := g.core.RoomOnline(req.UserId)
+	return &pb.OnlineResp{Online: online, DeviceCount: int32(count)}, nil
 }

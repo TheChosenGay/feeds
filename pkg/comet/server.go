@@ -79,6 +79,11 @@ func (c *Core) ConnCount() int {
 	return c.cfg.ConnManager.ConnCount()
 }
 
+// RoomOnline 查询房间在线状态。
+func (c *Core) RoomOnline(roomID string) (bool, int) {
+	return c.cfg.ConnManager.RoomOnline(roomID)
+}
+
 // Dispatch 消息分发。协议实现的 onRead 回调应调用此方法。
 func (c *Core) Dispatch(ctx context.Context, conn Conn, raw []byte) {
 	if len(raw) < FrameHeaderSize {

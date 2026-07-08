@@ -103,6 +103,18 @@ func (m *ConnManager) ConnCount() int {
 	return len(m.conns)
 }
 
+// RoomOnline 返回指定房间的在线连接数和是否在线。
+func (m *ConnManager) RoomOnline(roomID string) (online bool, count int) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	members, ok := m.rooms[roomID]
+	if !ok {
+		return false, 0
+	}
+	count = len(members)
+	return count > 0, count
+}
+
 // RoomCount 返回当前房间总数。
 func (m *ConnManager) RoomCount() int {
 	m.mu.RLock()
