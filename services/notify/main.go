@@ -9,7 +9,7 @@ import (
 	"github.com/TheChosenGay/feeds/pkg/config"
 	"github.com/TheChosenGay/feeds/pkg/storage"
 	"github.com/TheChosenGay/feeds/pkg/telemetry"
-	cometpb "github.com/TheChosenGay/feeds/proto/gen/comet"
+	livepb "github.com/TheChosenGay/feeds/proto/gen/comet"
 	pb "github.com/TheChosenGay/feeds/proto/gen/notify"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -37,17 +37,17 @@ func main() {
 		log.Fatalf("migrations: %v", err)
 	}
 
-	cometAddr := config.GetEnv("NOTIFY_COMET_ADDR", "localhost:9006")
-	cometConn, err := grpc.NewClient(cometAddr,
+	liveAddr := config.GetEnv("NOTIFY_LIVE_ADDR", "localhost:9006")
+	liveConn, err := grpc.NewClient(liveAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		log.Fatalf("comet grpc dial: %v", err)
+		log.Fatalf("live gRPC dial: %v", err)
 	}
-	defer cometConn.Close()
+	defer liveConn.Close()
 
-	cometCli := cometpb.NewLiveServiceClient(cometConn)
-	svc := NewNotifyService(&notifyStore{db: db}, cometCli)
+	liveCli := livepb.NewLiveServiceClient(liveConn)
+	svc := NewNotifyService(&notifyStore{db: db}, liveCli)
 
 	lis, err := net.Listen("tcp", ":9007")
 	if err != nil {
@@ -57,7 +57,7 @@ func main() {
 	s := grpc.NewServer(telemetry.GRPCServerOptions(telemetry.StatsHandler())...)
 	pb.RegisterNotifyServiceServer(s, svc)
 
-	log.Printf("notify service listening on :9007 (comet=%s)", cometAddr)
+	log.Printf("notify service listening on :9007 (live=%s)", liveAddr)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("serve: %v", err)
 	}

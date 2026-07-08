@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
-	cometpb "github.com/TheChosenGay/feeds/proto/gen/comet"
+	livepb "github.com/TheChosenGay/feeds/proto/gen/comet"
 	pb "github.com/TheChosenGay/feeds/proto/gen/notify"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,12 +13,12 @@ import (
 
 type notifyService struct {
 	pb.UnimplementedNotifyServiceServer
-	store    *notifyStore
-	cometCli cometpb.LiveServiceClient
+	store   *notifyStore
+	liveCli livepb.LiveServiceClient
 }
 
-func NewNotifyService(store *notifyStore, cometCli cometpb.LiveServiceClient) *notifyService {
-	return &notifyService{store: store, cometCli: cometCli}
+func NewNotifyService(store *notifyStore, liveCli livepb.LiveServiceClient) *notifyService {
+	return &notifyService{store: store, liveCli: liveCli}
 }
 
 // Push 推送通知：存 DB + 在线则实时投递，离线则留作下次上线拉取。
@@ -28,7 +28,7 @@ func (s *notifyService) Push(ctx context.Context, req *pb.PushReq) (*pb.PushResp
 	}
 
 	// 1. 先查在线状态
-	onlineResp, err := s.cometCli.IsOnline(ctx, &cometpb.OnlineReq{UserId: req.UserId})
+	onlineResp, err := s.liveCli.IsOnline(ctx, &livepb.OnlineReq{UserId: req.UserId})
 	if err != nil {
 		log.Printf("[notify] isOnline error: %v", err)
 	}
@@ -53,27 +53,27 @@ func (s *notifyService) Push(ctx context.Context, req *pb.PushReq) (*pb.PushResp
 	}
 
 	wsPayload, _ := json.Marshal(map[string]interface{}{
-		"id":         id,
-		"type":       req.Type,
-		"title":      req.Title,
-		"body":       req.Body,
-		"payload":    req.Payload,
+		"id":      id,
+		"type":    req.Type,
+		"title":   req.Title,
+		"body":    req.Body,
+		"payload": req.Payload,
 	})
 
-	cometResp, err := s.cometCli.PushUser(ctx, &cometpb.PushUserReq{
+	liveResp, err := s.liveCli.PushUser(ctx, &livepb.PushUserReq{
 		UserId:  req.UserId,
 		Payload: wsPayload,
 	})
 	if err != nil {
-		log.Printf("[notify] comet push error (stored ok): %v", err)
+		log.Printf("[notify] live push error (stored ok): %v", err)
 		return &pb.PushResp{Id: id, DeliveredWs: false, DeviceCount: 0}, nil
 	}
 
-	log.Printf("[notify] pushed to user=%s id=%d devices=%d", req.UserId, id, cometResp.Delivered)
+	log.Printf("[notify] pushed to user=%s id=%d devices=%d", req.UserId, id, liveResp.Delivered)
 	return &pb.PushResp{
 		Id:          id,
-		DeliveredWs: cometResp.Delivered > 0,
-		DeviceCount: cometResp.Delivered,
+		DeliveredWs: liveResp.Delivered > 0,
+		DeviceCount: liveResp.Delivered,
 	}, nil
 }
 

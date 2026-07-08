@@ -59,7 +59,7 @@ services:
       live:
         condition: service_healthy
     environment:
-      NOTIFY_COMET_ADDR: comet:9006
+      NOTIFY_LIVE_ADDR: live:9006
       NOTIFY_DB_DSN: postgres://feeds:feeds@postgres:5432/feeds?sslmode=disable
     healthcheck:
       test: ["CMD", "sh", "-c", "nc -z localhost 9007"]
