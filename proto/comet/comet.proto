@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option go_package = "github.com/TheChosenGay/feeds/proto/gen/comet";
+
+package feeds.comet.v1;
+
+// CometService 供其他服务（gateway、interaction 等）远程推送消息到 comet。
+service CometService {
+    // PushRoom 向指定房间广播消息。
+    rpc PushRoom(PushRoomReq) returns (PushResp);
+
+    // PushUser 向指定用户的所有设备推送消息。
+    rpc PushUser(PushUserReq) returns (PushResp);
+
+    // IsOnline 查询用户是否在线。
+    rpc IsOnline(OnlineReq) returns (OnlineResp);
+}
+
+message PushRoomReq {
+    string room_id = 1;
+    bytes  payload = 2;
+}
+
+message PushUserReq {
+    string user_id = 1;
+    bytes  payload = 2;
+}
+
+message PushResp {
+    int32 delivered = 1; // 成功投递的连接数
+}
+
+message OnlineReq {
+    string user_id = 1;
+}
+
+message OnlineResp {
+    bool  online       = 1;
+    int32 device_count = 2; // 在线设备数
+}

@@ -13,6 +13,31 @@ type contextKey string
 
 const userIDKey contextKey = "user_id"
 
+// ValidateToken validates a JWT token string and returns the user_id.
+// Used by non-HTTP contexts (e.g., WebSocket auth via Comet).
+func ValidateToken(tokenStr string) (string, error) {
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return secret(), nil
+	})
+	if err != nil || !token.Valid {
+		return "", jwt.ErrSignatureInvalid
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", jwt.ErrSignatureInvalid
+	}
+
+	userID, _ := claims["user_id"].(string)
+	if userID == "" {
+		return "", jwt.ErrSignatureInvalid
+	}
+	return userID, nil
+}
+
 // UserIDFromContext extracts the authenticated user ID from context.
 func UserIDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(userIDKey).(string)

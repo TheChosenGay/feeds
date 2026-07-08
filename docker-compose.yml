@@ -27,6 +27,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  comet:
+    build:
+      context: .
+      dockerfile: services/comet/Dockerfile
+    container_name: feeds-comet
+    ports:
+      - "8081:8081"
+      - "9006:9006"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      COMET_WS_ADDR: :8081
+      COMET_GRPC_ADDR: :9006
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 9006"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   feed-service:
     build:
       context: .

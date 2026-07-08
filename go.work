@@ -2,9 +2,11 @@ go 1.25.3
 
 use (
 	./pkg
+	./proto/gen/comet
 	./proto/gen/feed
 	./proto/gen/interaction
 	./proto/gen/user
+	./services/comet
 	./services/feed
 	./services/gateway
 	./services/interaction
