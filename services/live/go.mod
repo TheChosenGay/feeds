@@ -1,4 +1,4 @@
-module github.com/TheChosenGay/feeds/services/comet
+module github.com/TheChosenGay/feeds/services/live
 
 go 1.25.3
 

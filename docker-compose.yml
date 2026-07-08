@@ -28,11 +28,11 @@ services:
       timeout: 5s
       retries: 5
 
-  comet:
+  live:
     build:
       context: .
-      dockerfile: services/comet/Dockerfile
-    container_name: feeds-comet
+      dockerfile: services/live/Dockerfile
+    container_name: feeds-live
     ports:
       - "8081:8081"
       - "9006:9006"
@@ -56,7 +56,7 @@ services:
     ports:
       - "9007:9007"
     depends_on:
-      comet:
+      live:
         condition: service_healthy
     environment:
       NOTIFY_COMET_ADDR: comet:9006

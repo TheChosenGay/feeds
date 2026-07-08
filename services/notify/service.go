@@ -21,13 +21,19 @@ func NewNotifyService(store *notifyStore, cometCli cometpb.CometServiceClient) *
 	return &notifyService{store: store, cometCli: cometCli}
 }
 
-// Push 推送通知：存 DB + comet 实时投递。
+// Push 推送通知：存 DB + 在线则实时投递，离线则留作下次上线拉取。
 func (s *notifyService) Push(ctx context.Context, req *pb.PushReq) (*pb.PushResp, error) {
 	if req.UserId == "" || req.Type == "" || req.Title == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id, type, title are required")
 	}
 
-	// 1. 写入数据库
+	// 1. 先查在线状态
+	onlineResp, err := s.cometCli.IsOnline(ctx, &cometpb.OnlineReq{UserId: req.UserId})
+	if err != nil {
+		log.Printf("[notify] isOnline error: %v", err)
+	}
+
+	// 2. 写入数据库（在线离线都存，作为通知历史 + 离线队列）
 	id, err := s.store.Insert(ctx, &Notification{
 		UserID:  req.UserId,
 		Type:    req.Type,
@@ -40,14 +46,18 @@ func (s *notifyService) Push(ctx context.Context, req *pb.PushReq) (*pb.PushResp
 		return nil, status.Errorf(codes.Internal, "insert: %v", err)
 	}
 
-	// 2. 通过 comet 实时推送
+	// 3. 在线 → 实时推送；离线 → 客户端下次 ListNotifications 拉取
+	if onlineResp == nil || !onlineResp.Online {
+		log.Printf("[notify] user offline, queued: user=%s id=%d", req.UserId, id)
+		return &pb.PushResp{Id: id, DeliveredWs: false, DeviceCount: 0}, nil
+	}
+
 	wsPayload, _ := json.Marshal(map[string]interface{}{
 		"id":         id,
 		"type":       req.Type,
 		"title":      req.Title,
 		"body":       req.Body,
 		"payload":    req.Payload,
-		"created_at": nil, // 客户端自行处理时间
 	})
 
 	cometResp, err := s.cometCli.PushUser(ctx, &cometpb.PushUserReq{
@@ -59,10 +69,11 @@ func (s *notifyService) Push(ctx context.Context, req *pb.PushReq) (*pb.PushResp
 		return &pb.PushResp{Id: id, DeliveredWs: false, DeviceCount: 0}, nil
 	}
 
+	log.Printf("[notify] pushed to user=%s id=%d devices=%d", req.UserId, id, cometResp.Delivered)
 	return &pb.PushResp{
-		Id:           id,
-		DeliveredWs:  cometResp.Delivered > 0,
-		DeviceCount:  cometResp.Delivered,
+		Id:          id,
+		DeliveredWs: cometResp.Delivered > 0,
+		DeviceCount: cometResp.Delivered,
 	}, nil
 }
 
