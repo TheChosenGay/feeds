@@ -2,12 +2,14 @@
 import os
 import logging
 
+from notify import notify_pb2
+
 logger = logging.getLogger(__name__)
 
 FANOUT_THRESHOLD = int(os.getenv("FANOUT_THRESHOLD", "1000"))
 
 
-def handle_post_created(event: dict, *, redis, pg) -> None:
+def handle_post_created(event: dict, *, redis, pg, notify) -> None:
     """Process a post.created event: write to follower inboxes or author outbox."""
     post_id = event["post_id"]
     author_id = event["author_id"]
@@ -33,6 +35,17 @@ def handle_post_created(event: dict, *, redis, pg) -> None:
     logger.info(
         "fanout: post=%s author=%s → %d inboxes", post_id, author_id, len(followers)
     )
+
+    # Notify author via notify service
+    try:
+        notify.Push(notify_pb2.PushReq(
+            user_id=author_id,
+            type="system",
+            title="帖子发布成功",
+            body=f"已推送给 {len(followers)} 位粉丝",
+        ))
+    except Exception:
+        logger.exception("notify push failed (non-fatal)")
 
 
 def _get_followers(pg, user_id: str) -> list[str]:

@@ -10,6 +10,9 @@ dependencies = [
     "kafka-python>=2.0",
     "redis>=5.0.0",
     "psycopg[binary]>=3.1.0",
+    "grpcio>=1.60.0",
+    "protobuf>=4.25.0",
+    "grpcio-tools>=1.60.0",
 ]
 
 [project.scripts]

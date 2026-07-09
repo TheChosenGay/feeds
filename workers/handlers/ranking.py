@@ -18,7 +18,7 @@ RANKING_WINDOW_DAYS = 7
 TOP_N = 200
 
 
-def run_ranking(*, redis, pg) -> None:
+def run_ranking(*, redis, pg, notify) -> None:
     """Compute hot scores, refresh ZSET, and pre-cache top posts in Redis."""
     # ── 1. Get recent posts (IDs + created_at only, no JOINs) ──
     with pg.cursor() as cur:

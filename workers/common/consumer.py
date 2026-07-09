@@ -48,13 +48,14 @@ def run_workers(
     *,
     redis,
     pg,
+    notify,
 ) -> None:
     """Start every registered worker in its own thread.
 
     HandlerDef → Kafka consumer (one per group, poll loop).
     CronDef    → simple sleep-loop thread, calls handler every *interval* seconds.
 
-    All threads share the same Redis / PostgreSQL connections.
+    All threads share the same Redis / PostgreSQL / notify connections.
     """
     brokers = os.getenv("KAFKA_BROKERS", "localhost:9092")
     threads: list[threading.Thread] = []
@@ -63,7 +64,7 @@ def run_workers(
     for hd in handlers or []:
         t = threading.Thread(
             target=_run_consumer,
-            args=(hd, brokers, redis, pg),
+            args=(hd, brokers, redis, pg, notify),
             name=hd.group_id,
             daemon=True,
         )
@@ -73,7 +74,7 @@ def run_workers(
     for cd in crons or []:
         t = threading.Thread(
             target=_run_cron,
-            args=(cd, redis, pg),
+            args=(cd, redis, pg, notify),
             name=f"cron:{cd.name}",
             daemon=True,
         )
@@ -89,7 +90,7 @@ def run_workers(
         t.join()
 
 
-def _run_consumer(hd: HandlerDef, brokers: str, redis, pg) -> None:
+def _run_consumer(hd: HandlerDef, brokers: str, redis, pg, notify) -> None:
     logger.info("consumer starting: group=%s topics=%s", hd.group_id, hd.topics)
 
     consumer = KafkaConsumer(
@@ -103,7 +104,7 @@ def _run_consumer(hd: HandlerDef, brokers: str, redis, pg) -> None:
         for msg in consumer:
             try:
                 event = json.loads(msg.value.decode("utf-8"))
-                hd.handler(event, redis=redis, pg=pg)
+                hd.handler(event, redis=redis, pg=pg, notify=notify)
             except Exception:
                 logger.exception(
                     "handler error: group=%s topic=%s offset=%s",
@@ -113,18 +114,18 @@ def _run_consumer(hd: HandlerDef, brokers: str, redis, pg) -> None:
         consumer.close()
 
 
-def _run_cron(cd: CronDef, redis, pg) -> None:
+def _run_cron(cd: CronDef, redis, pg, notify) -> None:
     logger.info("cron starting: name=%s interval=%ds", cd.name, cd.interval)
 
     if cd.run_on_start:
         try:
-            cd.handler(redis=redis, pg=pg)
+            cd.handler(redis=redis, pg=pg, notify=notify)
         except Exception:
             logger.exception("cron error (startup): name=%s", cd.name)
 
     while True:
         time.sleep(cd.interval)
         try:
-            cd.handler(redis=redis, pg=pg)
+            cd.handler(redis=redis, pg=pg, notify=notify)
         except Exception:
             logger.exception("cron error: name=%s", cd.name)

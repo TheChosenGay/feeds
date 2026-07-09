@@ -1,7 +1,10 @@
 """Shared connections for all workers — created once, reused across handlers."""
 import os
-import redis
+
+import grpc
 import psycopg
+import redis
+from notify import notify_pb2_grpc
 
 
 def new_redis() -> redis.Redis:
@@ -15,3 +18,10 @@ def new_postgres():
         "host=localhost port=5432 user=feeds password=feeds_dev dbname=feeds sslmode=disable",
     )
     return psycopg.connect(dsn)
+
+
+def new_notify_stub():
+    """Create a gRPC stub for the notify service."""
+    addr = os.getenv("NOTIFY_ADDR", "localhost:9007")
+    channel = grpc.insecure_channel(addr)
+    return notify_pb2_grpc.NotifyServiceStub(channel)

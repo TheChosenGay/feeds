@@ -42,9 +42,9 @@ Thumbs.db
 # Proto generated
 proto/gen/
 
-# Bench / test binaries
-bench
-notify
+# Bench / test binaries (root only)
+/bench
+/notify
 test.out
 *.test
 *.prof

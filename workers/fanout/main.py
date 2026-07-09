@@ -6,8 +6,8 @@ logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
 )
 
-from common.connections import new_redis, new_postgres  # noqa: E402
-from common.consumer import HandlerDef, CronDef, run_workers  # noqa: E402
+from common.connections import new_notify_stub, new_postgres, new_redis  # noqa: E402
+from common.consumer import CronDef, HandlerDef, run_workers  # noqa: E402
 from handlers.fanout import handle_post_created  # noqa: E402
 from handlers.ranking import run_ranking  # noqa: E402
 
@@ -29,4 +29,5 @@ if __name__ == "__main__":
         ],
         redis=new_redis(),
         pg=new_postgres(),
+        notify=new_notify_stub(),
     )

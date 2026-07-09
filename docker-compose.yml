@@ -156,10 +156,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      notify:
+        condition: service_healthy
     environment:
       KAFKA_BROKERS: kafka:29092
       REDIS_ADDR: redis:6379
       POSTGRES_DSN: host=postgres port=5432 user=feeds password=feeds_dev dbname=feeds sslmode=disable
+      NOTIFY_ADDR: notify:9007
     restart: unless-stopped
 
   redis:
